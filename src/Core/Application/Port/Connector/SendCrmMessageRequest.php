@@ -18,6 +18,7 @@ final readonly class SendCrmMessageRequest
         public ChannelProvider $channelProvider,
         public string $managerAccountExternalId,
         public string $contactDisplayName,
+        public ?string $externalContactChatId,
         public ?string $externalContactUserId,
         public string $body,
         public DateTimeImmutable $occurredAt,

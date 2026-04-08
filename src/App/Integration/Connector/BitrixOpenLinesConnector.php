@@ -33,10 +33,14 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
     {
         $externalUserId = $request->externalContactUserId !== null && $request->externalContactUserId !== ''
             ? $request->externalContactUserId
-            : $request->externalThreadId;
-        $externalChatId = $request->externalContactUserId !== null && $request->externalContactUserId !== ''
-            ? $request->externalContactUserId
-            : $request->externalThreadId;
+            : (($request->externalContactChatId !== null && $request->externalContactChatId !== '')
+                ? $request->externalContactChatId
+                : $request->externalThreadId);
+        $externalChatId = $request->externalContactChatId !== null && $request->externalContactChatId !== ''
+            ? $request->externalContactChatId
+            : (($request->externalContactUserId !== null && $request->externalContactUserId !== '')
+                ? $request->externalContactUserId
+                : $request->externalThreadId);
 
         $externalMessageId = $this->apiFor($request)->sendMessage(
             externalThreadId: $externalChatId,

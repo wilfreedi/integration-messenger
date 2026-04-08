@@ -152,6 +152,8 @@ final class SyncInboundChannelMessageHandler
             [
                 'manager_account_external_id' => $managerAccount->externalAccountId(),
                 'contact_external_chat_id' => $command->contactExternalChatId,
+                'contact_external_user_id' => $command->contactExternalUserId,
+                'crm_external_thread_id' => $crmThread->externalThreadId(),
             ],
         ));
 
@@ -161,6 +163,7 @@ final class SyncInboundChannelMessageHandler
                 $command->channelProvider,
                 $managerAccount->externalAccountId(),
                 $contact->displayName(),
+                $command->contactExternalChatId,
                 $command->contactExternalUserId,
                 $command->body,
                 $command->occurredAt,
