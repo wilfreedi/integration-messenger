@@ -41,6 +41,8 @@ try {
         ], 403);
     }
 
+    maintainBitrixPanelBootstrapSession($path, $container->config()->bitrixWebhookToken);
+
     if ($method === 'GET' && $path === '/health') {
         $json->respond($container->healthController()->handle());
     }
@@ -90,7 +92,7 @@ try {
     }
 
     if (requiresPanelAuthentication($method, $path)) {
-        $allowBitrixAppBootstrap = isPanelHtmlPath($path) && isBitrixAppContextRequest();
+        $allowBitrixAppBootstrap = isPanelHtmlPath($path) && hasBitrixPanelBootstrapSession();
         $allowByManagementToken = hasValidManagementAccess(
             $container->config()->bitrixManagementToken,
             providedIntegrationToken(),
@@ -576,6 +578,53 @@ function hasValidManagementAccess(string $expectedToken, string $providedToken):
     }
 
     return $providedToken !== '' && hash_equals($expectedToken, $providedToken);
+}
+
+function maintainBitrixPanelBootstrapSession(string $path, string $bitrixWebhookToken): void
+{
+    if (!isPanelHtmlPath($path)) {
+        return;
+    }
+
+    if (!isBitrixBootstrapRequest($path, $bitrixWebhookToken)) {
+        return;
+    }
+
+    $_SESSION['bitrix_panel_bootstrap_until'] = time() + 86400;
+}
+
+function hasBitrixPanelBootstrapSession(): bool
+{
+    $expiresAt = $_SESSION['bitrix_panel_bootstrap_until'] ?? null;
+    if (!is_int($expiresAt)) {
+        return false;
+    }
+
+    if ($expiresAt <= time()) {
+        unset($_SESSION['bitrix_panel_bootstrap_until']);
+        return false;
+    }
+
+    return true;
+}
+
+function isBitrixBootstrapRequest(string $path, string $bitrixWebhookToken): bool
+{
+    if (isBitrixAppContextRequest()) {
+        return true;
+    }
+
+    $token = scalarParam($_GET['token'] ?? null);
+    if (
+        ($path === '/bitrix/app' || $path === '/bitrix/app/')
+        && $bitrixWebhookToken !== ''
+        && $token !== null
+        && hash_equals($bitrixWebhookToken, $token)
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
 /**
