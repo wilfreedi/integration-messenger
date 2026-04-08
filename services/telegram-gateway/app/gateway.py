@@ -402,8 +402,19 @@ class AccountSession:
                 continue
 
             try:
-                dto = self._normalize_message(message)
+                chat = self._call({"@type": "getChat", "chat_id": int(message["chat_id"])})
+                dto = self._normalizer.normalize(message, chat)
                 if dto is None:
+                    self._append_recent_event(
+                        {
+                            "account_id": self._account.account_id,
+                            "direction": "skipped",
+                            "reason": "chat_not_private",
+                            "chat_id": str(message.get("chat_id", "")),
+                            "chat_type": str(((chat.get("type") or {}).get("@type")) or "unknown"),
+                            "external_message_id": str(message.get("id", "")),
+                        }
+                    )
                     continue
 
                 self._post_to_core(dto)
@@ -439,8 +450,22 @@ class AccountSession:
 
         if update_type == "updateNewMessage":
             message = update.get("message")
-            if isinstance(message, dict) and not message.get("is_outgoing", False):
-                self._dispatch_queue.put(message)
+            if not isinstance(message, dict):
+                return
+
+            if message.get("is_outgoing", False):
+                self._append_recent_event(
+                    {
+                        "account_id": self._account.account_id,
+                        "direction": "skipped",
+                        "reason": "outgoing_message",
+                        "chat_id": str(message.get("chat_id", "")),
+                        "external_message_id": str(message.get("id", "")),
+                    }
+                )
+                return
+
+            self._dispatch_queue.put(message)
 
     def _handle_authorization_state(self, authorization_state: dict[str, Any]) -> None:
         state_type = authorization_state.get("@type", "unknown")
@@ -487,10 +512,6 @@ class AccountSession:
             return {"link": authorization_state.get("link", "")}
 
         return {}
-
-    def _normalize_message(self, message: dict[str, Any]) -> InboundChannelMessageDto | None:
-        chat = self._call({"@type": "getChat", "chat_id": int(message["chat_id"])})
-        return self._normalizer.normalize(message, chat)
 
     def _post_to_core(self, dto: InboundChannelMessageDto) -> None:
         if self._config.core_webhook_url == "":
