@@ -28,6 +28,7 @@ final class GatewayTelegramChannelConnectorTest
                 appPort: 8080,
                 appDebug: true,
                 bootstrapDemoData: false,
+                siteDomain: '',
                 dbHost: 'localhost',
                 dbPort: 5432,
                 dbName: 'chat_sync',

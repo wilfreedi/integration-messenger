@@ -64,6 +64,10 @@ try {
         );
     }
 
+    if ($method === 'GET' && $path === '/api/bitrix/setup/profile') {
+        $json->respond($container->bitrixSetupProfileController()->handle());
+    }
+
     if ($method === 'POST' && $path === '/api/bitrix/app/install') {
         assertSharedToken(
             $container->config()->bitrixManagementToken,

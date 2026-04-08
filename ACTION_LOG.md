@@ -48,3 +48,11 @@
 | 2026-04-08 | Added domain/TLS ingress service | Added Caddy in Compose with `SITE_DOMAIN`/`ACME_EMAIL` env, reverse proxy to app, and persistent cert storage |
 | 2026-04-08 | Added env and docs for automatic cert issue/renew | Updated `.env.example`, README, and Bitrix setup guide with DNS/ports/domain requirements |
 | 2026-04-08 | Validated compose and tests after ingress changes | `docker compose config` and `php tests/run.php` passed |
+| 2026-04-08 | Routed Telegram gateway through HTTPS ingress paths | Caddy now proxies `/telegram/*` and `/v1/*` to internal gateway service |
+| 2026-04-08 | Closed public direct HTTP ports for app/gateway | Updated compose ports to `127.0.0.1` bindings for `8080/8090` to stop external TLS-to-HTTP hits |
+| 2026-04-08 | Implemented Bitrix setup wizard page | Replaced old panel with one-page flow that generates tokens, all required URLs, ready `.env` block, Bitrix local app fields, and copy buttons |
+| 2026-04-08 | Updated Bitrix setup docs to wizard-first flow | `docs/BITRIX_SETUP_RU.md` now describes a single setup path directly from `/panel/bitrix` |
+| 2026-04-08 | Verified backend tests after panel/docs refactor | `php tests/run.php` passed |
+| 2026-04-08 | Added setup profile endpoint for panel autofill | Added `GET /api/bitrix/setup/profile` returning current env-backed Bitrix/domain settings and derived URLs |
+| 2026-04-08 | Refined panel behavior for missing-token generation | Panel now auto-fills existing tokens and only generates `BITRIX_WEBHOOK_TOKEN`/`BITRIX_MANAGEMENT_TOKEN` when fields are empty |
+| 2026-04-08 | Added SITE_DOMAIN into app runtime config | App now receives `SITE_DOMAIN` via compose/env and uses it in setup profile output |

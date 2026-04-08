@@ -100,6 +100,10 @@ open http://127.0.0.1:8090/
 open http://127.0.0.1:8080/panel/bitrix
 ```
 
+Для серверного доступа по домену используй только HTTPS через Caddy:
+- `https://<SITE_DOMAIN>/panel/bitrix`
+- `https://<SITE_DOMAIN>/telegram/`
+
 ## Домен и HTTPS сертификат (автовыпуск и перевыпуск)
 
 В проект добавлен `caddy` reverse proxy. Он:
@@ -212,6 +216,7 @@ curl -X POST http://127.0.0.1:8080/api/webhooks/crm-message \
 ## Bitrix Open Lines (REST)
 
 Подробная пошаговая инструкция: [docs/BITRIX_SETUP_RU.md](/Users/user/Desktop/work/chat/docs/BITRIX_SETUP_RU.md#L1).
+Страница `https://<SITE_DOMAIN>/panel/bitrix` теперь содержит мастер: генерация токенов, готовый `.env`, готовые URL для Bitrix и подключение портала одной кнопкой.
 
 Для реальной интеграции Bitrix включи `rest`-адаптер.
 

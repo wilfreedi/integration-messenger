@@ -30,3 +30,6 @@
 | 2026-04-07 | Simplify Bitrix management API responses | Done | Removed connector_id from user-facing binding responses to keep API surface simpler |
 | 2026-04-08 | Flatten Bitrix panel to one-step connection UX | Done | Removed split install/binding blocks and replaced with one "Подключить" form for manager + line + portal auth |
 | 2026-04-08 | Add domain-based HTTPS ingress with auto certificate renewal | Done | Added Caddy service with env-driven domain, automatic Let's Encrypt issue/renew, and updated setup docs |
+| 2026-04-08 | Prevent direct public access to internal HTTP services | Done | Bound `app` and `telegram-gateway` host ports to `127.0.0.1`, keeping external access only through HTTPS reverse proxy |
+| 2026-04-08 | Build Bitrix connection wizard page with data generator | Done | Added one-page setup wizard generating tokens, `.env`, Bitrix app paths, webhook URL, and copy actions |
+| 2026-04-08 | Refactor Bitrix page to instruction-first autofill flow | Done | Added server-backed setup profile autofill and changed token generation to "only if missing" |

@@ -12,6 +12,7 @@ use ChatSync\App\Http\Controller\BitrixAppInstallController;
 use ChatSync\App\Http\Controller\BitrixConnectProfileController;
 use ChatSync\App\Http\Controller\BitrixPortalsController;
 use ChatSync\App\Http\Controller\BitrixOpenLinesWebhookController;
+use ChatSync\App\Http\Controller\BitrixSetupProfileController;
 use ChatSync\App\Http\Controller\ManagerAccountsController;
 use ChatSync\App\Http\Controller\ManagerBitrixBindingController;
 use ChatSync\App\Http\Controller\ManagerBitrixBindingsController;
@@ -71,6 +72,7 @@ final class ApplicationContainer
     private ?ChannelMessageWebhookController $channelMessageWebhookController = null;
     private ?CrmMessageWebhookController $crmMessageWebhookController = null;
     private ?BitrixOpenLinesWebhookController $bitrixOpenLinesWebhookController = null;
+    private ?BitrixSetupProfileController $bitrixSetupProfileController = null;
     private ?BitrixAppInstallController $bitrixAppInstallController = null;
     private ?BitrixConnectProfileController $bitrixConnectProfileController = null;
     private ?BitrixPortalsController $bitrixPortalsController = null;
@@ -180,6 +182,11 @@ final class ApplicationContainer
             $this->bitrixRestClient(),
             $this->config->bitrixWebhookToken,
         );
+    }
+
+    public function bitrixSetupProfileController(): BitrixSetupProfileController
+    {
+        return $this->bitrixSetupProfileController ??= new BitrixSetupProfileController($this->config);
     }
 
     public function debugStateController(): DebugStateController
