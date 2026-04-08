@@ -549,6 +549,10 @@ function isBitrixAppContextRequest(): bool
         return false;
     }
 
+    if (str_contains($domain, '.')) {
+        return true;
+    }
+
     $hasAuthMarker = scalarParam($_GET['AUTH_ID'] ?? null) !== null
         || scalarParam($_GET['access_token'] ?? null) !== null
         || scalarParam($_GET['APP_SID'] ?? null) !== null

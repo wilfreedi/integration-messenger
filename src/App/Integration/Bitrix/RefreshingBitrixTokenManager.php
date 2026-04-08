@@ -19,8 +19,11 @@ final readonly class RefreshingBitrixTokenManager implements BitrixTokenManager
     public function ensureValidRoute(BitrixRoutingContext $route, string $managerAccountExternalId): BitrixRoutingContext
     {
         $now = $this->clock->now();
+        $looksExpiredSoon = $route->expiresAt <= $now->modify('+30 seconds');
+        $looksUnrealisticFar = $route->expiresAt > $now->modify('+4 hours');
+        $missingAccessToken = $route->accessToken === null || $route->accessToken === '';
 
-        if ($route->accessToken !== null && $route->expiresAt > $now->modify('+30 seconds')) {
+        if (!$missingAccessToken && !$looksExpiredSoon && !$looksUnrealisticFar) {
             return $route;
         }
 

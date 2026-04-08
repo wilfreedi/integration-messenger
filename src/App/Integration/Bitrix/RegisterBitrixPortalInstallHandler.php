@@ -23,7 +23,8 @@ final readonly class RegisterBitrixPortalInstallHandler
         $portalId = $existing?->portalId ?? $this->idGenerator->next();
         $installId = $existing?->installId ?? $this->idGenerator->next();
         $createdAt = $existing?->createdAt ?? $now;
-        $expiresAt = $now->modify(sprintf('+%d seconds', max(1, $command->expiresInSeconds)));
+        $expiresInSeconds = $this->normalizeExpiresInSeconds($command->expiresInSeconds, $now->getTimestamp());
+        $expiresAt = $now->modify(sprintf('+%d seconds', $expiresInSeconds));
         $oauthClientId = $command->oauthClientId ?? $existing?->oauthClientId;
         $oauthClientSecret = $command->oauthClientSecret ?? $existing?->oauthClientSecret;
         $oauthServerEndpoint = $command->oauthServerEndpoint ?? $existing?->oauthServerEndpoint;
@@ -56,5 +57,25 @@ final readonly class RegisterBitrixPortalInstallHandler
             installId: $install->installId,
             expiresAt: $install->expiresAt->format(DATE_ATOM),
         );
+    }
+
+    private function normalizeExpiresInSeconds(int $rawValue, int $nowTimestamp): int
+    {
+        $value = max(1, $rawValue);
+
+        // Bitrix may send absolute unix timestamp in AUTH_EXPIRES/expires.
+        if ($value > 1_000_000_000) {
+            $delta = $value - $nowTimestamp;
+            if ($delta > 0 && $delta <= 86400) {
+                return max(60, $delta);
+            }
+        }
+
+        // Access tokens in Bitrix are short-lived; clamp unrealistic values.
+        if ($value > 86400) {
+            return 3600;
+        }
+
+        return $value;
     }
 }

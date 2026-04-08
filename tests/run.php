@@ -12,6 +12,7 @@ if (!is_file($autoload)) {
 require $autoload;
 require __DIR__ . '/Support/TestEnvironment.php';
 require __DIR__ . '/Unit/BitrixAppInstallValidatorTest.php';
+require __DIR__ . '/Unit/BitrixTokenRefreshResilienceTest.php';
 require __DIR__ . '/Unit/BitrixOpenLinesApiTest.php';
 require __DIR__ . '/Unit/BitrixOpenLinesConnectorTest.php';
 require __DIR__ . '/Unit/RestBitrixOpenLinesConnectorLifecycleTest.php';
@@ -23,6 +24,7 @@ require __DIR__ . '/Unit/SyncOutboundCrmMessageHandlerTest.php';
 
 $tests = [
     ChatSync\Tests\Unit\BitrixAppInstallValidatorTest::class,
+    ChatSync\Tests\Unit\BitrixTokenRefreshResilienceTest::class,
     ChatSync\Tests\Unit\BitrixOpenLinesApiTest::class,
     ChatSync\Tests\Unit\BitrixOpenLinesConnectorTest::class,
     ChatSync\Tests\Unit\RestBitrixOpenLinesConnectorLifecycleTest::class,
