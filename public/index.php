@@ -128,8 +128,8 @@ try {
 
     if (($method === 'GET' || $method === 'POST') && ($path === '/bitrix/app' || $path === '/bitrix/app/')) {
         if ($method === 'POST') {
-            $token = $_GET['token'] ?? '';
             $payload = decodeInboundPayload();
+            $token = resolveBitrixWebhookToken($payload);
 
             if (isLikelyBitrixEventPayload($payload)) {
                 $json->respond(
@@ -168,8 +168,8 @@ try {
     }
 
     if ($method === 'POST' && $path === '/api/webhooks/bitrix/open-lines') {
-        $token = $_GET['token'] ?? '';
         $payload = decodeInboundPayload();
+        $token = resolveBitrixWebhookToken($payload);
         $json->respond(
             $container->bitrixOpenLinesWebhookController()->handle(
                 $payload,
@@ -802,4 +802,26 @@ function decodeInboundPayload(): array
     }
 
     return [];
+}
+
+/**
+ * @param array<string, mixed> $payload
+ */
+function resolveBitrixWebhookToken(array $payload): string
+{
+    $candidates = [
+        scalarParam($_GET['token'] ?? null),
+        scalarParam($_POST['token'] ?? null),
+        scalarParam($payload['token'] ?? null),
+        scalarParam($payload['TOKEN'] ?? null),
+        scalarParam($_SERVER['HTTP_X_WEBHOOK_TOKEN'] ?? null),
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_string($candidate) && $candidate !== '') {
+            return $candidate;
+        }
+    }
+
+    return '';
 }

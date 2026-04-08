@@ -228,6 +228,7 @@ final readonly class BitrixIntegrationCheckController
 
         $configured = $this->toBool($result['CONFIGURED'] ?? null);
         $active = $this->toBool($result['ACTIVE'] ?? ($result['STATUS'] ?? null));
+        $connectorDataProbe = $this->probeConnectorData($route, $connectorId, $lineId);
 
         try {
             $this->connectorLifecycle->ensure(
@@ -264,6 +265,7 @@ final readonly class BitrixIntegrationCheckController
                         : 'Коннектор активен; параметры webhook синхронизированы (data.set).')
                     : 'Автонастройка выполнена, но статус коннектора остался неготов.',
                 'response_preview' => $this->shortPreview($after),
+                'connector_data' => $connectorDataProbe,
             ];
         } catch (RuntimeException $exception) {
             return [
@@ -276,6 +278,54 @@ final readonly class BitrixIntegrationCheckController
                 'message' => 'Коннектор не готов. Автонастройка не удалась.',
                 'details' => $exception->getMessage(),
                 'response_preview' => $this->shortPreview($response),
+                'connector_data' => $connectorDataProbe,
+            ];
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function probeConnectorData(BitrixRoutingContext $route, string $connectorId, string $lineId): array
+    {
+        try {
+            $response = $this->restClient->call(
+                $route->restBaseUrl,
+                'imconnector.connector.data.get',
+                $this->withAuth([
+                    'CONNECTOR' => $connectorId,
+                    'LINE' => ctype_digit($lineId) ? (int) $lineId : $lineId,
+                ], $route->accessToken),
+            );
+
+            $result = $response['result'] ?? null;
+            if (!is_array($result)) {
+                return [
+                    'status' => 'unknown',
+                    'ok' => true,
+                    'message' => 'imconnector.connector.data.get вернул нетипичный payload.',
+                    'response_preview' => $this->shortPreview($response),
+                ];
+            }
+
+            $url = $this->firstStringByPath($result, [['URL'], ['DATA', 'URL'], ['url'], ['data', 'url']]);
+            $urlIm = $this->firstStringByPath($result, [['URL_IM'], ['DATA', 'URL_IM'], ['url_im'], ['data', 'url_im']]);
+
+            return [
+                'status' => 'ok',
+                'ok' => true,
+                'method' => 'imconnector.connector.data.get',
+                'url' => $url,
+                'url_im' => $urlIm,
+                'response_preview' => $this->shortPreview($response),
+            ];
+        } catch (RuntimeException $exception) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'method' => 'imconnector.connector.data.get',
+                'message' => 'Не удалось получить connector.data из Bitrix.',
+                'details' => $exception->getMessage(),
             ];
         }
     }
@@ -725,5 +775,29 @@ final readonly class BitrixIntegrationCheckController
         }
 
         return false;
+    }
+
+    /**
+     * @param array<string, mixed> $root
+     * @param list<list<int|string>> $paths
+     */
+    private function firstStringByPath(array $root, array $paths): ?string
+    {
+        foreach ($paths as $path) {
+            $value = $root;
+            foreach ($path as $part) {
+                if (!is_array($value) || !array_key_exists($part, $value)) {
+                    $value = null;
+                    break;
+                }
+                $value = $value[$part];
+            }
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
     }
 }

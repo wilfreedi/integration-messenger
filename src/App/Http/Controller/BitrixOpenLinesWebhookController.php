@@ -38,12 +38,23 @@ final readonly class BitrixOpenLinesWebhookController
      */
     public function handle(array $payload, string $token = ''): array
     {
+        $webhookCorrelationId = sprintf('bitrix-webhook:%s', substr(sha1(json_encode($payload) ?: ''), 0, 20));
+        $eventName = $this->firstString($payload, ['event', 'EVENT']) ?? 'unknown_event';
+
         if ($this->webhookToken !== '' && !hash_equals($this->webhookToken, $token)) {
+            $this->logger->log(new ExternalOperationLogEntry(
+                'bitrix',
+                IntegrationDirection::INBOUND,
+                $webhookCorrelationId,
+                $eventName,
+                'webhook_rejected_invalid_token',
+                [
+                    'token_present' => $token !== '' ? 1 : 0,
+                ],
+            ));
             throw new InvalidArgumentException('Invalid Bitrix webhook token.');
         }
 
-        $webhookCorrelationId = sprintf('bitrix-webhook:%s', substr(sha1(json_encode($payload) ?: ''), 0, 20));
-        $eventName = $this->firstString($payload, ['event', 'EVENT']) ?? 'unknown_event';
         $this->logger->log(new ExternalOperationLogEntry(
             'bitrix',
             IntegrationDirection::INBOUND,
