@@ -14,6 +14,7 @@ final class BitrixOpenLinesApiTest
     public static function run(): void
     {
         self::itSendsMessagesAndParsesBitrixMessageId();
+        self::itAcceptsBitrixResponseWithoutSessionFields();
         self::itSendsDeliveryStatus();
     }
 
@@ -75,6 +76,43 @@ final class BitrixOpenLinesApiTest
         Assertions::assertSame('chat-700', $restClient->lastPayload['MESSAGES'][0]['im']['chat_id'] ?? null);
         Assertions::assertSame('im-9001', $restClient->lastPayload['MESSAGES'][0]['im']['message_id'] ?? null);
         Assertions::assertSame('telegram-message-1', $restClient->lastPayload['MESSAGES'][0]['message']['id'][0] ?? null);
+    }
+
+    private static function itAcceptsBitrixResponseWithoutSessionFields(): void
+    {
+        $restClient = new RecordingBitrixRestClient([
+            'result' => [
+                'SUCCESS' => true,
+                'DATA' => [
+                    'RESULT' => [
+                        [
+                            'SUCCESS' => true,
+                            'message' => ['id' => 'bitrix-message-101'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $api = new BitrixOpenLinesApi(
+            baseUrl: 'https://example.bitrix24.ru/rest/1/secret',
+            connectorId: 'chat_sync',
+            lineId: '12',
+            restClient: $restClient,
+        );
+
+        $sendResult = $api->sendMessage(
+            externalThreadId: 'conversation-2',
+            externalUserId: 'telegram-user-2',
+            contactDisplayName: 'Bob Example',
+            body: 'hello',
+            occurredAt: new DateTimeImmutable('2026-04-07T10:00:00+00:00'),
+            sourceMessageId: 'source-2',
+        );
+
+        Assertions::assertSame('bitrix-message-101', $sendResult->externalMessageId);
+        Assertions::assertSame('', $sendResult->sessionId);
+        Assertions::assertSame('', $sendResult->sessionChatId);
     }
 }
 

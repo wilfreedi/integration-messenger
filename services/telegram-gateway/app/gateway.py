@@ -134,6 +134,8 @@ class AccountSession:
         self._dispatch_queue: queue.Queue[dict[str, Any]] = queue.Queue()
         self._recent_events: list[dict[str, Any]] = []
         self._recent_events_lock = threading.Lock()
+        self._integration_sent_messages: dict[str, float] = {}
+        self._integration_sent_messages_lock = threading.Lock()
         self._authorization_state = "not_started"
         self._authorization_meta: dict[str, Any] = {}
         self._last_error = ""
@@ -352,6 +354,7 @@ class AccountSession:
         )
 
         external_message_id = str(response["id"])
+        self._remember_integration_sent_message(external_chat_id, external_message_id)
         self._append_recent_event(
             {
                 "account_id": self._account.account_id,
@@ -460,16 +463,28 @@ class AccountSession:
                 return
 
             if message.get("is_outgoing", False):
+                chat_id = str(message.get("chat_id", ""))
+                message_id = str(message.get("id", ""))
+                if self._consume_integration_sent_message(chat_id, message_id):
+                    self._append_recent_event(
+                        {
+                            "account_id": self._account.account_id,
+                            "direction": "skipped",
+                            "reason": "outgoing_message_synced_from_bitrix",
+                            "chat_id": chat_id,
+                            "external_message_id": message_id,
+                        }
+                    )
+                    return
+
                 self._append_recent_event(
                     {
                         "account_id": self._account.account_id,
-                        "direction": "skipped",
-                        "reason": "outgoing_message",
-                        "chat_id": str(message.get("chat_id", "")),
-                        "external_message_id": str(message.get("id", "")),
+                        "direction": "outgoing_observed",
+                        "chat_id": chat_id,
+                        "external_message_id": message_id,
                     }
                 )
-                return
 
             self._dispatch_queue.put(message)
 
@@ -587,6 +602,29 @@ class AccountSession:
         database_directory = Path(self._config.tdlib_db_dir) / self._account.account_id
         files_directory = Path(self._config.tdlib_files_dir) / self._account.account_id
         return database_directory, files_directory
+
+    def _remember_integration_sent_message(self, chat_id: str, message_id: str) -> None:
+        key = f"{chat_id}:{message_id}"
+        now = time.time()
+        with self._integration_sent_messages_lock:
+            self._integration_sent_messages[key] = now
+            self._cleanup_integration_sent_messages(now)
+
+    def _consume_integration_sent_message(self, chat_id: str, message_id: str) -> bool:
+        key = f"{chat_id}:{message_id}"
+        now = time.time()
+        with self._integration_sent_messages_lock:
+            self._cleanup_integration_sent_messages(now)
+            if key not in self._integration_sent_messages:
+                return False
+            self._integration_sent_messages.pop(key, None)
+            return True
+
+    def _cleanup_integration_sent_messages(self, now: float) -> None:
+        ttl_seconds = 600.0
+        stale_keys = [key for key, ts in self._integration_sent_messages.items() if now - ts > ttl_seconds]
+        for key in stale_keys:
+            self._integration_sent_messages.pop(key, None)
 
     def _message_preview(self, message: dict[str, Any]) -> str:
         content = message.get("content") or {}

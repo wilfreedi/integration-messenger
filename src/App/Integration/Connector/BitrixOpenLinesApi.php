@@ -60,18 +60,12 @@ final readonly class BitrixOpenLinesApi
 
         $this->assertMessageSent($response);
         $sessionId = $this->extractSessionId($response);
-        if ($sessionId === null) {
-            throw new RuntimeException(
-                'Bitrix did not return open line session for sent message: ' . $this->responsePreview($response),
-            );
-        }
-
         $sessionChatId = $this->extractSessionChatId($response) ?? '';
         $externalMessageId = $this->extractMessageId($response) ?? $sourceMessageId;
 
         return new BitrixOpenLinesSendMessageResult(
             externalMessageId: $externalMessageId,
-            sessionId: $sessionId,
+            sessionId: $sessionId ?? '',
             sessionChatId: $sessionChatId,
         );
     }
