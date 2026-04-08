@@ -90,7 +90,16 @@ try {
     }
 
     if (requiresPanelAuthentication($method, $path)) {
+        $allowBitrixAppBootstrap = isPanelHtmlPath($path) && isBitrixAppContextRequest();
+        $allowByManagementToken = hasValidManagementAccess(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+        );
+
         if (!$panelAccess->isAuthenticated($clientIp, $userAgent)) {
+            if ($allowBitrixAppBootstrap || $allowByManagementToken) {
+                // Allowed for Bitrix app embed flow or explicit management token access.
+            } else {
             if (isPanelHtmlPath($path)) {
                 redirectToPanelLogin(currentRequestUri());
             }
@@ -99,6 +108,7 @@ try {
                 'error' => 'auth_required',
                 'message' => 'Panel authentication required.',
             ], 401);
+            }
         }
     }
 
@@ -524,6 +534,48 @@ function redirectToPanelLogin(string $returnTo): never
 
     header('Location: ' . $location, true, 302);
     exit;
+}
+
+function isBitrixAppContextRequest(): bool
+{
+    $domain = scalarParam($_GET['DOMAIN'] ?? null)
+        ?? scalarParam($_GET['domain'] ?? null)
+        ?? scalarParam($_POST['DOMAIN'] ?? null)
+        ?? scalarParam($_POST['domain'] ?? null);
+
+    if ($domain === '') {
+        return false;
+    }
+
+    $hasAuthMarker = scalarParam($_GET['AUTH_ID'] ?? null) !== null
+        || scalarParam($_GET['access_token'] ?? null) !== null
+        || scalarParam($_GET['APP_SID'] ?? null) !== null
+        || scalarParam($_GET['application_token'] ?? null) !== null
+        || scalarParam($_POST['AUTH_ID'] ?? null) !== null
+        || scalarParam($_POST['access_token'] ?? null) !== null
+        || scalarParam($_POST['APP_SID'] ?? null) !== null
+        || scalarParam($_POST['application_token'] ?? null) !== null;
+
+    if ($hasAuthMarker) {
+        return true;
+    }
+
+    $auth = $_POST['auth'] ?? null;
+    if (is_array($auth)) {
+        return scalarParam($auth['access_token'] ?? null) !== null
+            || scalarParam($auth['application_token'] ?? null) !== null;
+    }
+
+    return false;
+}
+
+function hasValidManagementAccess(string $expectedToken, string $providedToken): bool
+{
+    if ($expectedToken === '') {
+        return false;
+    }
+
+    return $providedToken !== '' && hash_equals($expectedToken, $providedToken);
 }
 
 /**
