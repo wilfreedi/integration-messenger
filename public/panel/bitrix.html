@@ -235,7 +235,7 @@
     <ol class="steps">
       <li>Создай локальное приложение в Bitrix.</li>
       <li>Вставь `Путь вашего обработчика` и `Путь для первоначальной установки` из шага 1.</li>
-      <li>Дай приложению право `imconnector`.</li>
+      <li>Дай приложению права `imconnector` (обязательно) и `imopenlines` (для проверки линии кнопкой диагностики).</li>
       <li>В Open Lines укажи `Webhook Open Lines` из шага 1.</li>
       <li>Установи приложение. Bitrix вернет тебя на эту страницу с `AUTH_ID/REFRESH_ID/APP_SID`.</li>
     </ol>
@@ -279,6 +279,18 @@
         <label for="scope">scope</label>
         <input id="scope" value="imconnector">
       </div>
+      <div>
+        <label for="oauthClientId">client_id (из карточки приложения)</label>
+        <input id="oauthClientId" placeholder="local.00000000.0000000">
+      </div>
+      <div>
+        <label for="oauthClientSecret">client_secret (из карточки приложения)</label>
+        <input id="oauthClientSecret" placeholder="секрет приложения">
+      </div>
+      <div>
+        <label for="oauthServerEndpoint">server_endpoint</label>
+        <input id="oauthServerEndpoint" value="https://oauth.bitrix.info/rest">
+      </div>
     </div>
     <div class="toolbar">
       <button class="primary" id="savePortalBtn">Подключить Портал</button>
@@ -313,6 +325,15 @@
         <div class="code">scope
 Что ставить: imconnector
 Откуда взять: оставь значение по умолчанию, если не требуется другое</div>
+        <div class="code">client_id
+Что ставить: ID локального приложения (клиент OAuth)
+Откуда взять: Bitrix -> Приложения разработчика -> твое локальное приложение -> поле client_id</div>
+        <div class="code">client_secret
+Что ставить: секрет локального приложения
+Откуда взять: там же, в карточке приложения, поле client_secret</div>
+        <div class="code">server_endpoint
+Что ставить: https://oauth.bitrix.info/rest
+Откуда взять: можно оставить значение по умолчанию (для облачного Bitrix24)</div>
       </div>
       <div class="code" style="margin-top:10px;">Пример URL от Bitrix (сокращенно):
 https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&REFRESH_ID=...&APP_SID=...&MEMBER_ID=...&AUTH_EXPIRES=...</div>
@@ -349,6 +370,8 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     </label>
     <div class="toolbar">
       <button class="primary" id="saveBindingBtn">Добавить Привязку Менеджера</button>
+      <button id="checkPortalBtn">Проверить Портал API</button>
+      <button id="checkLineBtn">Проверить Линию</button>
       <button id="healthBtn">Проверить Health</button>
       <button id="reloadBtn">Обновить списки</button>
     </div>
@@ -357,6 +380,11 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   <section class="panel">
     <h2>Статус</h2>
     <div id="status" class="status">Готово.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Диагностика</h2>
+    <div id="diagnosticsBox" class="json">{}</div>
   </section>
 
   <section class="grid-2">
@@ -387,6 +415,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
 
   const managerSelect = document.getElementById("managerId");
   const statusBox = document.getElementById("status");
+  const diagnosticsBox = document.getElementById("diagnosticsBox");
   const portalsBox = document.getElementById("portalsBox");
   const bindingsBox = document.getElementById("bindingsBox");
   const bindingPortalDomainInput = document.getElementById("bindingPortalDomain");
@@ -449,7 +478,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
       "Путь для первоначальной установки:\n" +
       (installUrlInput.value || "<https://your-domain/bitrix/app>") + "\n\n" +
       "Права приложения:\n" +
-      "imconnector\n\n" +
+      "imconnector, imopenlines\n\n" +
       "Webhook Open Lines:\n" +
       (webhookUrlInput.value || "<https://your-domain/api/webhooks/bitrix/open-lines?token=...>");
   }
@@ -627,6 +656,9 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     const memberId = firstNonEmpty([params.get("member_id"), params.get("MEMBER_ID")]);
     const appToken = firstNonEmpty([params.get("application_token"), params.get("APP_SID")]);
     const endpoint = firstNonEmpty([params.get("client_endpoint"), params.get("CLIENT_ENDPOINT")]);
+    const oauthClientId = firstNonEmpty([params.get("client_id"), params.get("CLIENT_ID")]);
+    const oauthClientSecret = firstNonEmpty([params.get("client_secret"), params.get("CLIENT_SECRET")]);
+    const oauthServerEndpoint = firstNonEmpty([params.get("server_endpoint"), params.get("SERVER_ENDPOINT")]);
     const expires = firstNonEmpty([params.get("expires_in"), params.get("AUTH_EXPIRES"), params.get("expires")]);
 
     if (domain) {
@@ -655,6 +687,15 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     if (expires) {
       document.getElementById("expiresIn").value = expires;
     }
+    if (oauthClientId) {
+      document.getElementById("oauthClientId").value = oauthClientId;
+    }
+    if (oauthClientSecret) {
+      document.getElementById("oauthClientSecret").value = oauthClientSecret;
+    }
+    if (oauthServerEndpoint) {
+      document.getElementById("oauthServerEndpoint").value = oauthServerEndpoint;
+    }
   }
 
   function installAuthPayload() {
@@ -671,7 +712,10 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
       refresh_token: document.getElementById("refreshToken").value.trim(),
       application_token: document.getElementById("applicationToken").value.trim(),
       scope: document.getElementById("scope").value.trim() || "",
-      expires_in: Number.isFinite(expires) && expires > 0 ? expires : 3600
+      expires_in: Number.isFinite(expires) && expires > 0 ? expires : 3600,
+      client_id: document.getElementById("oauthClientId").value.trim() || undefined,
+      client_secret: document.getElementById("oauthClientSecret").value.trim() || undefined,
+      server_endpoint: document.getElementById("oauthServerEndpoint").value.trim() || undefined
     };
   }
 
@@ -720,6 +764,73 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   async function checkHealth() {
     const payload = await request("/health", {method: "GET"});
     setStatus("Health OK. bitrix_management_api_protected=" + payload.bitrix_management_api_protected);
+  }
+
+  function selectedPortalDomain() {
+    const bindingDomain = bindingPortalDomainInput.value.trim().toLowerCase();
+    if (bindingDomain !== "") {
+      return bindingDomain;
+    }
+    return document.getElementById("installPortalDomain").value.trim().toLowerCase();
+  }
+
+  function selectedLineId() {
+    return document.getElementById("lineId").value.trim();
+  }
+
+  async function checkPortalApi() {
+    const portalDomain = selectedPortalDomain();
+    if (!portalDomain) {
+      throw new Error("Укажи portal_domain для проверки.");
+    }
+
+    const payload = await request("/api/bitrix/check", {
+      method: "POST",
+      body: JSON.stringify({
+        portal_domain: portalDomain
+      })
+    });
+
+    diagnosticsBox.textContent = formatJson(payload);
+    setStatus(
+      payload.ok ? "Портал Bitrix подключен корректно." : "Проверка портала выявила проблемы.",
+      !payload.ok
+    );
+  }
+
+  async function checkLineBinding() {
+    const portalDomain = selectedPortalDomain();
+    if (!portalDomain) {
+      throw new Error("Укажи portal_domain для проверки линии.");
+    }
+    if (!managerSelect.value.trim()) {
+      throw new Error("Выбери менеджера для проверки привязки.");
+    }
+
+    const payload = await request("/api/bitrix/check", {
+      method: "POST",
+      body: JSON.stringify({
+        portal_domain: portalDomain,
+        channel_provider: "telegram",
+        manager_account_external_id: managerSelect.value.trim(),
+        line_id: selectedLineId() || undefined
+      })
+    });
+
+    diagnosticsBox.textContent = formatJson(payload);
+
+    const lineStatus = (payload.line && payload.line.status) ? payload.line.status : "unknown";
+    if (payload.ok && lineStatus === "ok") {
+      setStatus("Привязка и линия проверены: OK.");
+      return;
+    }
+
+    if (payload.ok && lineStatus === "unknown") {
+      setStatus("Привязка OK. Проверка линии ограничена правами приложения (нужен scope imopenlines).");
+      return;
+    }
+
+    setStatus("Проверка линии/привязки выявила проблемы.", true);
   }
 
   async function copyText(value, successMessage) {
@@ -774,6 +885,8 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   });
   document.getElementById("savePortalBtn").onclick = () => withError(savePortalInstall);
   document.getElementById("saveBindingBtn").onclick = () => withError(saveBinding);
+  document.getElementById("checkPortalBtn").onclick = () => withError(checkPortalApi);
+  document.getElementById("checkLineBtn").onclick = () => withError(checkLineBinding);
   document.getElementById("healthBtn").onclick = () => withError(checkHealth);
   document.getElementById("reloadBtn").onclick = () => withError(reloadData);
 

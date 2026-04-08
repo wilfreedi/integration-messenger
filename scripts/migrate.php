@@ -15,6 +15,8 @@ if ($schema === false) {
 }
 
 $container->pdo()->exec($schema);
+$container->pdo()->exec('ALTER TABLE bitrix_app_installs ADD COLUMN IF NOT EXISTS oauth_client_id VARCHAR(255) NULL');
+$container->pdo()->exec('ALTER TABLE bitrix_app_installs ADD COLUMN IF NOT EXISTS oauth_client_secret VARCHAR(255) NULL');
+$container->pdo()->exec('ALTER TABLE bitrix_app_installs ADD COLUMN IF NOT EXISTS oauth_server_endpoint TEXT NULL');
 
 fwrite(STDOUT, "Schema applied successfully.\n");
-

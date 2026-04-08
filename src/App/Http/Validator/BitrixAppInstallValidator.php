@@ -33,6 +33,9 @@ final class BitrixAppInstallValidator
             scope: $this->optionalString($auth, 'scope') ?? '',
             applicationToken: $this->requiredString($auth, 'application_token'),
             restBaseUrl: $restBaseUrl,
+            oauthClientId: $this->firstOptionalString($auth, ['client_id', 'application_client_id']),
+            oauthClientSecret: $this->firstOptionalString($auth, ['client_secret', 'application_client_secret']),
+            oauthServerEndpoint: $this->oauthServerEndpoint($auth),
         );
     }
 
@@ -89,6 +92,22 @@ final class BitrixAppInstallValidator
 
     /**
      * @param array<string, mixed> $payload
+     * @param list<string> $keys
+     */
+    private function firstOptionalString(array $payload, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $this->optionalString($payload, $key);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
      */
     private function portalDomain(array $payload): string
     {
@@ -131,6 +150,39 @@ final class BitrixAppInstallValidator
         }
         if ($path === '' || !str_starts_with($path, '/rest')) {
             throw new InvalidArgumentException('Field "client_endpoint" path must start with "/rest".');
+        }
+
+        return rtrim(sprintf('%s://%s%s', $scheme, $host, $path), '/');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function oauthServerEndpoint(array $payload): ?string
+    {
+        $value = $this->optionalString($payload, 'server_endpoint');
+        if ($value === null) {
+            return null;
+        }
+
+        $parts = parse_url($value);
+        if (!is_array($parts)) {
+            throw new InvalidArgumentException('Field "server_endpoint" must be a valid URL.');
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $path = (string) ($parts['path'] ?? '');
+        $user = (string) ($parts['user'] ?? '');
+        $pass = (string) ($parts['pass'] ?? '');
+        $query = (string) ($parts['query'] ?? '');
+        $fragment = (string) ($parts['fragment'] ?? '');
+
+        if ($scheme !== 'https' || $host === '') {
+            throw new InvalidArgumentException('Field "server_endpoint" must be an HTTPS URL.');
+        }
+        if ($user !== '' || $pass !== '' || $query !== '' || $fragment !== '') {
+            throw new InvalidArgumentException('Field "server_endpoint" must not include auth credentials, query, or fragment.');
         }
 
         return rtrim(sprintf('%s://%s%s', $scheme, $host, $path), '/');

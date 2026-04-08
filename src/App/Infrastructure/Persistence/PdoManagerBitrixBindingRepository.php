@@ -59,15 +59,22 @@ final class PdoManagerBitrixBindingRepository extends AbstractPdoRepository impl
     {
         $row = $this->execute(
             'SELECT
+                p.portal_domain,
                 b.connector_id,
                 b.line_id,
                 i.access_token,
+                i.refresh_token,
                 i.expires_at,
-                i.rest_base_url
+                i.rest_base_url,
+                i.oauth_client_id,
+                i.oauth_client_secret,
+                i.oauth_server_endpoint
              FROM manager_accounts ma
              INNER JOIN manager_bitrix_bindings b
                  ON b.manager_account_id = ma.id
                 AND b.is_enabled = TRUE
+             INNER JOIN bitrix_portals p
+                 ON p.id = b.portal_id
              INNER JOIN bitrix_app_installs i
                  ON i.portal_id = b.portal_id
                 AND i.active = TRUE
@@ -87,12 +94,16 @@ final class PdoManagerBitrixBindingRepository extends AbstractPdoRepository impl
 
         /** @var array<string, mixed> $row */
         return new BitrixRoutingContext(
+            portalDomain: (string) $row['portal_domain'],
             restBaseUrl: (string) $row['rest_base_url'],
             connectorId: (string) $row['connector_id'],
             lineId: (string) $row['line_id'],
             accessToken: is_string($row['access_token']) && $row['access_token'] !== '' ? $row['access_token'] : null,
+            refreshToken: is_string($row['refresh_token']) && $row['refresh_token'] !== '' ? $row['refresh_token'] : null,
+            oauthClientId: is_string($row['oauth_client_id']) && $row['oauth_client_id'] !== '' ? $row['oauth_client_id'] : null,
+            oauthClientSecret: is_string($row['oauth_client_secret']) && $row['oauth_client_secret'] !== '' ? $row['oauth_client_secret'] : null,
+            oauthServerEndpoint: is_string($row['oauth_server_endpoint']) && $row['oauth_server_endpoint'] !== '' ? $row['oauth_server_endpoint'] : null,
             expiresAt: $this->dateTime((string) $row['expires_at']),
         );
     }
 }
-

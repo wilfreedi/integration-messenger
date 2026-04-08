@@ -6,12 +6,12 @@ namespace ChatSync\App\Http\Controller;
 
 use ChatSync\App\Http\Validator\BitrixOpenLinesWebhookValidator;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingResolver;
+use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
 use ChatSync\App\Integration\Connector\BitrixOpenLinesApi;
 use ChatSync\App\Integration\Connector\BitrixRestClient;
 use ChatSync\App\Query\MessageMappingLookup;
 use ChatSync\Core\Application\Handler\SyncOutboundCrmMessageHandler;
 use ChatSync\Core\Domain\Enum\ExternalSystemType;
-use DateTimeImmutable;
 use InvalidArgumentException;
 
 final readonly class BitrixOpenLinesWebhookController
@@ -21,6 +21,7 @@ final readonly class BitrixOpenLinesWebhookController
         private SyncOutboundCrmMessageHandler $handler,
         private MessageMappingLookup $messageLookup,
         private BitrixRoutingResolver $routingResolver,
+        private BitrixTokenManager $tokenManager,
         private BitrixRestClient $bitrixRestClient,
         private string $webhookToken = '',
     ) {
@@ -122,8 +123,13 @@ final readonly class BitrixOpenLinesWebhookController
             || $route->restBaseUrl === ''
             || $route->connectorId === ''
             || $route->lineId === ''
-            || ($route->accessToken !== null && $route->expiresAt <= new DateTimeImmutable())
         ) {
+            return null;
+        }
+
+        try {
+            $route = $this->tokenManager->ensureValidRoute($route, $managerAccountExternalId);
+        } catch (\Throwable) {
             return null;
         }
 

@@ -24,6 +24,9 @@ final readonly class RegisterBitrixPortalInstallHandler
         $installId = $existing?->installId ?? $this->idGenerator->next();
         $createdAt = $existing?->createdAt ?? $now;
         $expiresAt = $now->modify(sprintf('+%d seconds', max(1, $command->expiresInSeconds)));
+        $oauthClientId = $command->oauthClientId ?? $existing?->oauthClientId;
+        $oauthClientSecret = $command->oauthClientSecret ?? $existing?->oauthClientSecret;
+        $oauthServerEndpoint = $command->oauthServerEndpoint ?? $existing?->oauthServerEndpoint;
 
         $install = new BitrixPortalInstall(
             portalId: $portalId,
@@ -37,6 +40,9 @@ final readonly class RegisterBitrixPortalInstallHandler
             scope: $command->scope,
             applicationToken: $command->applicationToken,
             restBaseUrl: $command->restBaseUrl,
+            oauthClientId: $oauthClientId,
+            oauthClientSecret: $oauthClientSecret,
+            oauthServerEndpoint: $oauthServerEndpoint,
             active: true,
             createdAt: $createdAt,
             updatedAt: $now,
@@ -52,4 +58,3 @@ final readonly class RegisterBitrixPortalInstallHandler
         );
     }
 }
-

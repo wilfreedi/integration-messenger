@@ -31,12 +31,18 @@ final class BitrixAppInstallValidatorTest
                 'expires_in' => 7200,
                 'scope' => 'imconnector',
                 'application_token' => 'app-token',
+                'client_id' => 'local.123',
+                'client_secret' => 'secret.456',
+                'server_endpoint' => 'https://oauth.bitrix.info/rest/',
             ],
         ]);
 
         Assertions::assertSame('portal.bitrix24.ru', $command->portalDomain);
         Assertions::assertSame('https://portal.bitrix24.ru/rest', $command->restBaseUrl);
         Assertions::assertSame(7200, $command->expiresInSeconds);
+        Assertions::assertSame('local.123', $command->oauthClientId);
+        Assertions::assertSame('secret.456', $command->oauthClientSecret);
+        Assertions::assertSame('https://oauth.bitrix.info/rest', $command->oauthServerEndpoint);
     }
 
     private static function itRejectsNonHttpsClientEndpoint(): void

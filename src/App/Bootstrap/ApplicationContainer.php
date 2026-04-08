@@ -10,6 +10,7 @@ use ChatSync\App\Http\Controller\DebugStateController;
 use ChatSync\App\Http\Controller\HealthController;
 use ChatSync\App\Http\Controller\BitrixAppInstallController;
 use ChatSync\App\Http\Controller\BitrixConnectProfileController;
+use ChatSync\App\Http\Controller\BitrixIntegrationCheckController;
 use ChatSync\App\Http\Controller\BitrixPortalsController;
 use ChatSync\App\Http\Controller\BitrixOpenLinesWebhookController;
 use ChatSync\App\Http\Controller\BitrixSetupGenerateTokensController;
@@ -35,7 +36,10 @@ use ChatSync\App\Infrastructure\Persistence\PdoManagerBitrixBindingRepository;
 use ChatSync\App\Infrastructure\Persistence\PdoMessageReferenceRepository;
 use ChatSync\App\Infrastructure\Persistence\PdoMessageRepository;
 use ChatSync\App\Infrastructure\Persistence\PdoProcessedEventRepository;
+use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
 use ChatSync\App\Integration\Bitrix\RegisterBitrixPortalInstallHandler;
+use ChatSync\App\Integration\Bitrix\RefreshingBitrixTokenManager;
+use ChatSync\App\Integration\Bitrix\StreamBitrixOAuthClient;
 use ChatSync\App\Integration\Bitrix\UpsertManagerBitrixBindingHandler;
 use ChatSync\App\Integration\Connector\GatewayTelegramChannelConnector;
 use ChatSync\App\Integration\Connector\BitrixOpenLinesConnector;
@@ -77,12 +81,15 @@ final class ApplicationContainer
     private ?BitrixSetupGenerateTokensController $bitrixSetupGenerateTokensController = null;
     private ?BitrixAppInstallController $bitrixAppInstallController = null;
     private ?BitrixConnectProfileController $bitrixConnectProfileController = null;
+    private ?BitrixIntegrationCheckController $bitrixIntegrationCheckController = null;
     private ?BitrixPortalsController $bitrixPortalsController = null;
     private ?ManagerAccountsController $managerAccountsController = null;
     private ?ManagerBitrixBindingController $managerBitrixBindingController = null;
     private ?ManagerBitrixBindingsController $managerBitrixBindingsController = null;
     private ?DebugStateController $debugStateController = null;
     private ?StreamBitrixRestClient $bitrixRestClient = null;
+    private ?StreamBitrixOAuthClient $bitrixOAuthClient = null;
+    private ?BitrixTokenManager $bitrixTokenManager = null;
 
     public function __construct(private readonly AppConfig $config)
     {
@@ -181,6 +188,7 @@ final class ApplicationContainer
             ),
             new MessageMappingLookup($this->pdo()),
             new PdoManagerBitrixBindingRepository($this->pdo()),
+            $this->bitrixTokenManager(),
             $this->bitrixRestClient(),
             $this->config->bitrixWebhookToken,
         );
@@ -230,6 +238,16 @@ final class ApplicationContainer
                 $this->idGenerator(),
                 $this->clock(),
             ),
+        );
+    }
+
+    public function bitrixIntegrationCheckController(): BitrixIntegrationCheckController
+    {
+        return $this->bitrixIntegrationCheckController ??= new BitrixIntegrationCheckController(
+            new PdoBitrixPortalInstallRepository($this->pdo()),
+            new PdoManagerBitrixBindingRepository($this->pdo()),
+            $this->bitrixTokenManager(),
+            $this->bitrixRestClient(),
         );
     }
 
@@ -300,6 +318,7 @@ final class ApplicationContainer
             'rest' => new BitrixOpenLinesConnector(
                 $this->bitrixRestClient(),
                 new PdoManagerBitrixBindingRepository($this->pdo()),
+                $this->bitrixTokenManager(),
             ),
             default => throw new RuntimeException(sprintf(
                 'Unsupported BITRIX_CONNECTOR_MODE "%s".',
@@ -311,5 +330,19 @@ final class ApplicationContainer
     private function bitrixRestClient(): StreamBitrixRestClient
     {
         return $this->bitrixRestClient ??= new StreamBitrixRestClient();
+    }
+
+    private function bitrixOAuthClient(): StreamBitrixOAuthClient
+    {
+        return $this->bitrixOAuthClient ??= new StreamBitrixOAuthClient();
+    }
+
+    private function bitrixTokenManager(): BitrixTokenManager
+    {
+        return $this->bitrixTokenManager ??= new RefreshingBitrixTokenManager(
+            $this->bitrixOAuthClient(),
+            new PdoBitrixPortalInstallRepository($this->pdo()),
+            $this->clock(),
+        );
     }
 }

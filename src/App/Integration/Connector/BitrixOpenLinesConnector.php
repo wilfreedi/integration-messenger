@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace ChatSync\App\Integration\Connector;
 
 use ChatSync\App\Integration\Bitrix\BitrixRoutingResolver;
+use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
 use ChatSync\Core\Application\Port\Connector\CrmConnector;
 use ChatSync\Core\Application\Port\Connector\OpenCrmThreadRequest;
 use ChatSync\Core\Application\Port\Connector\OpenCrmThreadResult;
 use ChatSync\Core\Application\Port\Connector\SendCrmMessageRequest;
 use ChatSync\Core\Application\Port\Connector\SendCrmMessageResult;
-use DateTimeImmutable;
 use RuntimeException;
 
 final readonly class BitrixOpenLinesConnector implements CrmConnector
@@ -18,6 +18,7 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
     public function __construct(
         private BitrixRestClient $restClient,
         private BitrixRoutingResolver $routingResolver,
+        private BitrixTokenManager $tokenManager,
     ) {
     }
 
@@ -65,12 +66,7 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
             ));
         }
 
-        if ($route->accessToken !== null && $route->expiresAt <= new DateTimeImmutable()) {
-            throw new RuntimeException(sprintf(
-                'Bitrix access token is expired for manager account "%s".',
-                $request->managerAccountExternalId,
-            ));
-        }
+        $route = $this->tokenManager->ensureValidRoute($route, $request->managerAccountExternalId);
 
         return new BitrixOpenLinesApi(
             $route->restBaseUrl,

@@ -20,10 +20,12 @@ final readonly class BitrixPortalInstall
         public string $scope,
         public string $applicationToken,
         public string $restBaseUrl,
+        public ?string $oauthClientId,
+        public ?string $oauthClientSecret,
+        public ?string $oauthServerEndpoint,
         public bool $active,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
     ) {
     }
 }
-

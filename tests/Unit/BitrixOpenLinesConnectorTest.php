@@ -6,6 +6,7 @@ namespace ChatSync\Tests\Unit;
 
 use ChatSync\App\Integration\Bitrix\BitrixRoutingContext;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingResolver;
+use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
 use ChatSync\App\Integration\Connector\BitrixOpenLinesConnector;
 use ChatSync\App\Integration\Connector\BitrixRestClient;
 use ChatSync\Core\Application\Port\Connector\SendCrmMessageRequest;
@@ -20,7 +21,7 @@ final class BitrixOpenLinesConnectorTest
     {
         self::itFailsWhenRoutingBindingIsMissing();
         self::itUsesRoutingContextForBoundManagerAccount();
-        self::itFailsFastWhenRoutingTokenIsExpired();
+        self::itUsesTokenManagerForExpiredRoute();
     }
 
     private static function itFailsWhenRoutingBindingIsMissing(): void
@@ -36,6 +37,7 @@ final class BitrixOpenLinesConnectorTest
         $connector = new BitrixOpenLinesConnector(
             $routingClient,
             new StaticBitrixRoutingResolver(null),
+            new StaticBitrixTokenManager(null),
         );
 
         $thrown = false;
@@ -61,16 +63,22 @@ final class BitrixOpenLinesConnectorTest
         ]);
 
         $resolver = new StaticBitrixRoutingResolver(new BitrixRoutingContext(
+            portalDomain: 'portal-a.bitrix24.ru',
             restBaseUrl: 'https://portal-a.bitrix24.ru/rest',
             connectorId: 'chat_sync_a',
             lineId: '77',
             accessToken: 'oauth-access-token',
+            refreshToken: 'refresh-token',
+            oauthClientId: 'client-id',
+            oauthClientSecret: 'client-secret',
+            oauthServerEndpoint: 'https://oauth.bitrix.info/rest',
             expiresAt: new DateTimeImmutable('2030-01-01T00:00:00+00:00'),
         ));
 
         $connector = new BitrixOpenLinesConnector(
             $routingClient,
             $resolver,
+            new StaticBitrixTokenManager(null),
         );
 
         $result = $connector->sendMessage(self::request('telegram-manager-account'));
@@ -98,33 +106,52 @@ final class BitrixOpenLinesConnectorTest
         );
     }
 
-    private static function itFailsFastWhenRoutingTokenIsExpired(): void
+    private static function itUsesTokenManagerForExpiredRoute(): void
     {
-        $routingClient = new ConnectorRecordingBitrixRestClient(['result' => ['messages' => [['id' => 'routing']]]]);
+        $routingClient = new ConnectorRecordingBitrixRestClient([
+            'result' => [
+                'messages' => [
+                    ['id' => 'bitrix-routing-message-3'],
+                ],
+            ],
+        ]);
 
-        $resolver = new StaticBitrixRoutingResolver(new BitrixRoutingContext(
+        $expiredRoute = new BitrixRoutingContext(
+            portalDomain: 'portal-expired.bitrix24.ru',
             restBaseUrl: 'https://portal-expired.bitrix24.ru/rest',
             connectorId: 'chat_sync_expired',
             lineId: '99',
             accessToken: 'expired-token',
+            refreshToken: 'refresh-token',
+            oauthClientId: 'client-id',
+            oauthClientSecret: 'client-secret',
+            oauthServerEndpoint: 'https://oauth.bitrix.info/rest',
             expiresAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
-        ));
+        );
+
+        $resolver = new StaticBitrixRoutingResolver($expiredRoute);
 
         $connector = new BitrixOpenLinesConnector(
             $routingClient,
             $resolver,
+            new StaticBitrixTokenManager(new BitrixRoutingContext(
+                portalDomain: 'portal-expired.bitrix24.ru',
+                restBaseUrl: 'https://portal-expired.bitrix24.ru/rest',
+                connectorId: 'chat_sync_expired',
+                lineId: '99',
+                accessToken: 'fresh-token',
+                refreshToken: 'new-refresh-token',
+                oauthClientId: 'client-id',
+                oauthClientSecret: 'client-secret',
+                oauthServerEndpoint: 'https://oauth.bitrix.info/rest',
+                expiresAt: new DateTimeImmutable('2030-01-01T00:00:00+00:00'),
+            )),
         );
 
-        $thrown = false;
-        try {
-            $connector->sendMessage(self::request('telegram-manager-account'));
-        } catch (RuntimeException $exception) {
-            $thrown = true;
-            Assertions::assertTrue(str_contains($exception->getMessage(), 'expired'));
-        }
+        $result = $connector->sendMessage(self::request('telegram-manager-account'));
 
-        Assertions::assertTrue($thrown, 'Expected runtime error for expired Bitrix access token.');
-        Assertions::assertSame('', $routingClient->lastMethod, 'Routing request must not be sent with expired token.');
+        Assertions::assertSame('bitrix-routing-message-3', $result->externalMessageId);
+        Assertions::assertSame('fresh-token', $routingClient->lastPayload['auth'] ?? null);
     }
 }
 
@@ -137,6 +164,22 @@ final class StaticBitrixRoutingResolver implements BitrixRoutingResolver
     public function resolveForManagerAccount(string $channelProvider, string $managerAccountExternalId): ?BitrixRoutingContext
     {
         return $this->context;
+    }
+}
+
+final class StaticBitrixTokenManager implements BitrixTokenManager
+{
+    public function __construct(private readonly ?BitrixRoutingContext $replacement)
+    {
+    }
+
+    public function ensureValidRoute(BitrixRoutingContext $route, string $managerAccountExternalId): BitrixRoutingContext
+    {
+        if ($this->replacement !== null) {
+            return $this->replacement;
+        }
+
+        return $route;
     }
 }
 

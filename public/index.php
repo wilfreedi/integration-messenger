@@ -93,6 +93,15 @@ try {
         $json->respond($container->bitrixConnectProfileController()->handle($json->decodeRequestBody()));
     }
 
+    if ($method === 'POST' && $path === '/api/bitrix/check') {
+        assertSharedToken(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+            'Invalid integration management token.',
+        );
+        $json->respond($container->bitrixIntegrationCheckController()->handle($json->decodeRequestBody()));
+    }
+
     if ($method === 'GET' && $path === '/api/bitrix/portals') {
         assertSharedToken(
             $container->config()->bitrixManagementToken,
@@ -223,6 +232,9 @@ function redirectBitrixAppToPanel(array $queryParams, array $formParams): void
         'application_token',
         'member_id',
         'client_endpoint',
+        'client_id',
+        'client_secret',
+        'server_endpoint',
         'expires',
         'expires_in',
     ] as $key) {
@@ -247,6 +259,9 @@ function redirectBitrixAppToPanel(array $queryParams, array $formParams): void
             'application_token',
             'member_id',
             'client_endpoint',
+            'client_id',
+            'client_secret',
+            'server_endpoint',
             'expires',
             'expires_in',
         ] as $key) {

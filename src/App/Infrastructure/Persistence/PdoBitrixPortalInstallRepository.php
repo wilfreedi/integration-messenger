@@ -44,6 +44,9 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
                     scope,
                     application_token,
                     rest_base_url,
+                    oauth_client_id,
+                    oauth_client_secret,
+                    oauth_server_endpoint,
                     active,
                     created_at,
                     updated_at
@@ -57,6 +60,9 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
                     :scope,
                     :application_token,
                     :rest_base_url,
+                    :oauth_client_id,
+                    :oauth_client_secret,
+                    :oauth_server_endpoint,
                     :active,
                     :created_at,
                     :updated_at
@@ -68,6 +74,9 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
                     scope = EXCLUDED.scope,
                     application_token = EXCLUDED.application_token,
                     rest_base_url = EXCLUDED.rest_base_url,
+                    oauth_client_id = EXCLUDED.oauth_client_id,
+                    oauth_client_secret = EXCLUDED.oauth_client_secret,
+                    oauth_server_endpoint = EXCLUDED.oauth_server_endpoint,
                     active = EXCLUDED.active,
                     updated_at = EXCLUDED.updated_at',
                 [
@@ -79,6 +88,9 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
                     'scope' => $install->scope,
                     'application_token' => $install->applicationToken,
                     'rest_base_url' => $install->restBaseUrl,
+                    'oauth_client_id' => $install->oauthClientId,
+                    'oauth_client_secret' => $install->oauthClientSecret,
+                    'oauth_server_endpoint' => $install->oauthServerEndpoint,
                     'active' => $install->active ? 'true' : 'false',
                     'created_at' => $install->createdAt->format(DATE_ATOM),
                     'updated_at' => $install->updatedAt->format(DATE_ATOM),
@@ -112,6 +124,9 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
                 i.scope,
                 i.application_token,
                 i.rest_base_url,
+                i.oauth_client_id,
+                i.oauth_client_secret,
+                i.oauth_server_endpoint,
                 i.active,
                 i.created_at AS install_created_at,
                 i.updated_at AS install_updated_at
@@ -144,6 +159,35 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
         return $value;
     }
 
+    public function updateTokens(
+        string $portalDomain,
+        string $accessToken,
+        string $refreshToken,
+        \DateTimeImmutable $expiresAt,
+        string $scope
+    ): void {
+        $this->execute(
+            'UPDATE bitrix_app_installs i
+             SET
+                access_token = :access_token,
+                refresh_token = :refresh_token,
+                expires_at = :expires_at,
+                scope = CASE WHEN :scope = \'\' THEN i.scope ELSE :scope END,
+                updated_at = :updated_at
+             FROM bitrix_portals p
+             WHERE p.id = i.portal_id
+               AND p.portal_domain = :portal_domain',
+            [
+                'access_token' => $accessToken,
+                'refresh_token' => $refreshToken,
+                'expires_at' => $expiresAt->format(DATE_ATOM),
+                'scope' => $scope,
+                'updated_at' => (new \DateTimeImmutable())->format(DATE_ATOM),
+                'portal_domain' => $portalDomain,
+            ],
+        );
+    }
+
     /**
      * @param array<string, mixed> $row
      */
@@ -161,10 +205,18 @@ final class PdoBitrixPortalInstallRepository extends AbstractPdoRepository imple
             scope: (string) $row['scope'],
             applicationToken: (string) $row['application_token'],
             restBaseUrl: (string) $row['rest_base_url'],
+            oauthClientId: isset($row['oauth_client_id']) && is_string($row['oauth_client_id']) && $row['oauth_client_id'] !== ''
+                ? $row['oauth_client_id']
+                : null,
+            oauthClientSecret: isset($row['oauth_client_secret']) && is_string($row['oauth_client_secret']) && $row['oauth_client_secret'] !== ''
+                ? $row['oauth_client_secret']
+                : null,
+            oauthServerEndpoint: isset($row['oauth_server_endpoint']) && is_string($row['oauth_server_endpoint']) && $row['oauth_server_endpoint'] !== ''
+                ? $row['oauth_server_endpoint']
+                : null,
             active: (bool) $row['active'],
             createdAt: $this->dateTime((string) $row['install_created_at']),
             updatedAt: $this->dateTime((string) $row['install_updated_at']),
         );
     }
 }
-
