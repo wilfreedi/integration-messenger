@@ -9,6 +9,7 @@ use ChatSync\App\Integration\Bitrix\BitrixPortalInstallRepository;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingContext;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingResolver;
 use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
+use ChatSync\App\Integration\Connector\BitrixOpenLinesConnectorLifecycle;
 use ChatSync\App\Integration\Connector\BitrixRestClient;
 use InvalidArgumentException;
 use RuntimeException;
@@ -19,6 +20,7 @@ final readonly class BitrixIntegrationCheckController
         private BitrixPortalInstallRepository $portalInstallRepository,
         private BitrixRoutingResolver $routingResolver,
         private BitrixTokenManager $tokenManager,
+        private BitrixOpenLinesConnectorLifecycle $connectorLifecycle,
         private BitrixRestClient $restClient,
     ) {
     }
@@ -139,18 +141,74 @@ final readonly class BitrixIntegrationCheckController
 
         $configured = $this->toBool($result['CONFIGURED'] ?? null);
         $active = $this->toBool($result['ACTIVE'] ?? ($result['STATUS'] ?? null));
-        $ok = $configured && $active;
+        if ($configured && $active) {
+            return [
+                'status' => 'ok',
+                'ok' => true,
+                'connector_id' => $connectorId,
+                'line_id' => $lineId,
+                'configured' => true,
+                'active' => true,
+                'message' => 'Коннектор активен и настроен.',
+                'response_preview' => $this->shortPreview($response),
+            ];
+        }
+
+        try {
+            $this->connectorLifecycle->ensure(
+                $route->restBaseUrl,
+                $connectorId,
+                $lineId,
+                $route->accessToken,
+            );
+
+            $after = $this->restClient->call(
+                $route->restBaseUrl,
+                'imconnector.status',
+                $this->withAuth([
+                    'CONNECTOR' => $connectorId,
+                    'LINE' => $lineId,
+                ], $route->accessToken),
+            );
+            $afterResult = $after['result'] ?? null;
+            $afterConfigured = is_array($afterResult) && $this->toBool($afterResult['CONFIGURED'] ?? null);
+            $afterActive = is_array($afterResult) && $this->toBool($afterResult['ACTIVE'] ?? ($afterResult['STATUS'] ?? null));
+            $afterOk = $afterConfigured && $afterActive;
+
+            return [
+                'status' => $afterOk ? 'ok' : 'failed',
+                'ok' => $afterOk,
+                'connector_id' => $connectorId,
+                'line_id' => $lineId,
+                'configured' => $afterConfigured,
+                'active' => $afterActive,
+                'message' => $afterOk
+                    ? 'Коннектор был автоматически настроен (register/activate/data.set).'
+                    : 'Автонастройка выполнена, но статус коннектора остался неготов.',
+                'response_preview' => $this->shortPreview($after),
+            ];
+        } catch (RuntimeException $exception) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'connector_id' => $connectorId,
+                'line_id' => $lineId,
+                'configured' => $configured,
+                'active' => $active,
+                'message' => 'Коннектор не готов. Автонастройка не удалась.',
+                'details' => $exception->getMessage(),
+                'response_preview' => $this->shortPreview($response),
+            ];
+        }
 
         return [
-            'status' => $ok ? 'ok' : 'failed',
-            'ok' => $ok,
+            'status' => 'failed',
+            'ok' => false,
             'connector_id' => $connectorId,
             'line_id' => $lineId,
             'configured' => $configured,
             'active' => $active,
-            'message' => $ok
-                ? 'Коннектор активен и настроен.'
-                : 'Коннектор не готов. Нужны register/activate/connector.data.set.',
+            'message' => 'Коннектор не готов. Нужны register/activate/connector.data.set.',
             'response_preview' => $this->shortPreview($response),
         ];
     }

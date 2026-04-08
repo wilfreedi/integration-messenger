@@ -250,6 +250,7 @@ final class ApplicationContainer
             new PdoBitrixPortalInstallRepository($this->pdo()),
             new PdoManagerBitrixBindingRepository($this->pdo()),
             $this->bitrixTokenManager(),
+            $this->bitrixOpenLinesLifecycle(),
             $this->bitrixRestClient(),
         );
     }
