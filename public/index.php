@@ -114,11 +114,7 @@ try {
     if (($method === 'GET' || $method === 'POST') && ($path === '/bitrix/app' || $path === '/bitrix/app/')) {
         if ($method === 'POST') {
             $token = $_GET['token'] ?? '';
-            $payload = $json->decodeRequestBody();
-            if ($payload === [] && $_POST !== []) {
-                /** @var array<string, mixed> $payload */
-                $payload = $_POST;
-            }
+            $payload = decodeInboundPayload();
 
             if (isLikelyBitrixEventPayload($payload)) {
                 $json->respond(
@@ -149,11 +145,7 @@ try {
 
     if ($method === 'POST' && $path === '/api/webhooks/bitrix/open-lines') {
         $token = $_GET['token'] ?? '';
-        $payload = $json->decodeRequestBody();
-        if ($payload === [] && $_POST !== []) {
-            /** @var array<string, mixed> $payload */
-            $payload = $_POST;
-        }
+        $payload = decodeInboundPayload();
         $json->respond(
             $container->bitrixOpenLinesWebhookController()->handle(
                 $payload,
@@ -553,4 +545,38 @@ function isLikelyBitrixEventPayload(array $payload): bool
     }
 
     return false;
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function decodeInboundPayload(): array
+{
+    if ($_POST !== []) {
+        /** @var array<string, mixed> $payload */
+        $payload = $_POST;
+        return $payload;
+    }
+
+    $raw = file_get_contents('php://input');
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+
+    $decodedJson = json_decode($raw, true);
+    if (is_array($decodedJson)) {
+        /** @var array<string, mixed> $payload */
+        $payload = $decodedJson;
+        return $payload;
+    }
+
+    $parsed = [];
+    parse_str($raw, $parsed);
+    if (is_array($parsed) && $parsed !== []) {
+        /** @var array<string, mixed> $payload */
+        $payload = $parsed;
+        return $payload;
+    }
+
+    return [];
 }
