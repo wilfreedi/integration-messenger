@@ -24,15 +24,13 @@ try {
         $json->respond($container->healthController()->handle());
     }
 
-    if ($method === 'GET' && $path === '/panel/bitrix') {
+    if ($method === 'GET' && ($path === '/panel/bitrix' || $path === '/panel/bitrix/')) {
         header('Location: /panel/bitrix.html', true, 302);
         exit;
     }
 
-    if ($method === 'GET' && $path === '/bitrix/app') {
-        $query = $_SERVER['QUERY_STRING'] ?? '';
-        $location = '/panel/bitrix.html' . (is_string($query) && $query !== '' ? ('?' . $query) : '');
-        header('Location: ' . $location, true, 302);
+    if (($method === 'GET' || $method === 'POST') && ($path === '/bitrix/app' || $path === '/bitrix/app/')) {
+        redirectBitrixAppToPanel($_GET, $_POST);
         exit;
     }
 
@@ -189,4 +187,95 @@ function assertSharedToken(string $expectedToken, string $providedToken, string 
     if ($providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
         throw new InvalidArgumentException($errorMessage);
     }
+}
+
+/**
+ * @param array<string, mixed> $queryParams
+ * @param array<string, mixed> $formParams
+ */
+function redirectBitrixAppToPanel(array $queryParams, array $formParams): void
+{
+    /** @var array<string, string> $params */
+    $params = [];
+
+    foreach ($queryParams as $key => $value) {
+        if (!is_string($key)) {
+            continue;
+        }
+        $scalar = scalarParam($value);
+        if ($scalar === null || $scalar === '') {
+            continue;
+        }
+        $params[$key] = $scalar;
+    }
+
+    foreach ([
+        'AUTH_ID',
+        'REFRESH_ID',
+        'APP_SID',
+        'DOMAIN',
+        'MEMBER_ID',
+        'CLIENT_ENDPOINT',
+        'AUTH_EXPIRES',
+        'domain',
+        'access_token',
+        'refresh_token',
+        'application_token',
+        'member_id',
+        'client_endpoint',
+        'expires',
+        'expires_in',
+    ] as $key) {
+        if (!array_key_exists($key, $formParams)) {
+            continue;
+        }
+        $scalar = scalarParam($formParams[$key]);
+        if ($scalar === null || $scalar === '') {
+            continue;
+        }
+        if (!array_key_exists($key, $params)) {
+            $params[$key] = $scalar;
+        }
+    }
+
+    $auth = $formParams['auth'] ?? null;
+    if (is_array($auth)) {
+        foreach ([
+            'domain',
+            'access_token',
+            'refresh_token',
+            'application_token',
+            'member_id',
+            'client_endpoint',
+            'expires',
+            'expires_in',
+        ] as $key) {
+            if (!array_key_exists($key, $auth)) {
+                continue;
+            }
+            $scalar = scalarParam($auth[$key]);
+            if ($scalar === null || $scalar === '') {
+                continue;
+            }
+            if (!array_key_exists($key, $params)) {
+                $params[$key] = $scalar;
+            }
+        }
+    }
+
+    $query = http_build_query($params);
+    $location = '/panel/bitrix.html' . ($query !== '' ? ('?' . $query) : '');
+    header('Location: ' . $location, true, 302);
+}
+
+function scalarParam(mixed $value): ?string
+{
+    if (is_string($value)) {
+        return trim($value);
+    }
+    if (is_int($value) || is_float($value) || is_bool($value)) {
+        return (string) $value;
+    }
+
+    return null;
 }
