@@ -121,6 +121,16 @@ class GatewayRequestHandler(BaseHTTPRequestHandler):
                     )
                     return
 
+            if len(parts) == 4 and parts[0] == "v1" and parts[1] == "accounts" and parts[3] == "manager":
+                self._respond_json(
+                    HTTPStatus.OK,
+                    GATEWAY.update_manager_account(
+                        account_id=parts[2],
+                        manager_account_external_id=self._required_string(payload, "manager_account_external_id"),
+                    ),
+                )
+                return
+
             if (
                 len(parts) == 6
                 and parts[0] == "v1"

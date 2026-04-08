@@ -146,6 +146,10 @@ class AccountSession:
 
     def update_account(self, account: AccountRecord) -> None:
         self._account = account
+        self._normalizer = TelegramUpdateNormalizer(
+            manager_account_external_id=account.manager_account_external_id,
+            crm_provider=self._config.default_crm_provider,
+        )
 
     def start(self) -> None:
         if not self._configured:
@@ -736,6 +740,30 @@ class TelegramGateway:
         return {
             "account": session.snapshot(),
             "result": result,
+        }
+
+    def update_manager_account(self, account_id: str, manager_account_external_id: str) -> dict[str, Any]:
+        manager_id = self._sanitize_manager_external_id(manager_account_external_id.strip())
+        if manager_id == "":
+            raise GatewayError("Field 'manager_account_external_id' must contain at least one valid character.")
+
+        with self._accounts_lock:
+            record = self._accounts.get(account_id)
+            if record is None:
+                raise GatewayError(f"Account '{account_id}' does not exist.")
+            for item in self._accounts.values():
+                if item.account_id != account_id and item.manager_account_external_id == manager_id:
+                    raise GatewayError(f"Manager account '{manager_id}' already exists.")
+
+            updated = replace(record, manager_account_external_id=manager_id)
+            self._accounts[account_id] = updated
+            self._store.save(self._accounts)
+
+        session = self._require_session(account_id)
+        session.update_account(updated)
+
+        return {
+            "account": session.snapshot(),
         }
 
     def submit_code(self, account_id: str, code: str) -> dict[str, Any]:

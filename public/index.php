@@ -113,6 +113,28 @@ try {
         $json->respond($container->bitrixLogsController()->handle($resolvedLimit));
     }
 
+    if ($method === 'GET' && $path === '/api/bitrix/telegram/accounts') {
+        assertSharedToken(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+            'Invalid integration management token.',
+        );
+        $json->respond($container->bitrixTelegramGatewayAccountsController()->list());
+    }
+
+    if ($method === 'POST' && $path === '/api/bitrix/telegram/accounts/manager') {
+        assertSharedToken(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+            'Invalid integration management token.',
+        );
+        $json->respond(
+            $container->bitrixTelegramGatewayAccountsController()->rebind(
+                $json->decodeRequestBody(),
+            ),
+        );
+    }
+
     if ($method === 'GET' && $path === '/api/bitrix/portals') {
         assertSharedToken(
             $container->config()->bitrixManagementToken,

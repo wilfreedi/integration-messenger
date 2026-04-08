@@ -13,6 +13,7 @@ use ChatSync\App\Http\Controller\BitrixConnectProfileController;
 use ChatSync\App\Http\Controller\BitrixIntegrationCheckController;
 use ChatSync\App\Http\Controller\BitrixLogsController;
 use ChatSync\App\Http\Controller\BitrixPortalsController;
+use ChatSync\App\Http\Controller\BitrixTelegramGatewayAccountsController;
 use ChatSync\App\Http\Controller\BitrixOpenLinesWebhookController;
 use ChatSync\App\Http\Controller\BitrixSetupGenerateTokensController;
 use ChatSync\App\Http\Controller\BitrixSetupProfileController;
@@ -87,6 +88,7 @@ final class ApplicationContainer
     private ?BitrixConnectProfileController $bitrixConnectProfileController = null;
     private ?BitrixIntegrationCheckController $bitrixIntegrationCheckController = null;
     private ?BitrixLogsController $bitrixLogsController = null;
+    private ?BitrixTelegramGatewayAccountsController $bitrixTelegramGatewayAccountsController = null;
     private ?BitrixPortalsController $bitrixPortalsController = null;
     private ?ManagerAccountsController $managerAccountsController = null;
     private ?ManagerBitrixBindingController $managerBitrixBindingController = null;
@@ -255,6 +257,14 @@ final class ApplicationContainer
             $this->bitrixTokenManager(),
             $this->bitrixOpenLinesLifecycle(),
             $this->bitrixRestClient(),
+            $this->config->telegramGatewayBaseUrl,
+            $this->config->telegramGatewayToken,
+        );
+    }
+
+    public function bitrixTelegramGatewayAccountsController(): BitrixTelegramGatewayAccountsController
+    {
+        return $this->bitrixTelegramGatewayAccountsController ??= new BitrixTelegramGatewayAccountsController(
             $this->config->telegramGatewayBaseUrl,
             $this->config->telegramGatewayToken,
         );

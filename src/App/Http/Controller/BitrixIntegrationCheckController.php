@@ -59,6 +59,7 @@ final readonly class BitrixIntegrationCheckController
             is_string($bindingProbe['connector_id'] ?? null) ? (string) $bindingProbe['connector_id'] : $validatedRoute->connectorId,
             is_string($bindingProbe['line_id'] ?? null) ? (string) $bindingProbe['line_id'] : ($requestedLineId ?? ''),
         );
+        $telegramGatewayProbe = $this->probeTelegramGateway($managerAccountExternalId);
 
         $lineId = $bindingProbe['line_id'] ?? $requestedLineId ?? '';
         $lineProbe = $this->probeLine($validatedRoute, (string) $lineId);
@@ -66,6 +67,7 @@ final readonly class BitrixIntegrationCheckController
         $overallOk = $portalProbe['ok'] === true
             && (($bindingProbe['ok'] ?? true) === true)
             && (($connectorProbe['ok'] ?? true) === true)
+            && (($telegramGatewayProbe['ok'] ?? true) === true)
             && ($lineProbe['status'] === 'ok' || $lineProbe['status'] === 'skipped' || $lineProbe['status'] === 'unknown');
 
         return [
@@ -86,7 +88,7 @@ final readonly class BitrixIntegrationCheckController
             'binding' => $bindingProbe,
             'connector' => $connectorProbe,
             'line' => $lineProbe,
-            'telegram_gateway' => $this->probeTelegramGateway($managerAccountExternalId),
+            'telegram_gateway' => $telegramGatewayProbe,
         ];
     }
 
@@ -562,6 +564,7 @@ final readonly class BitrixIntegrationCheckController
                 'ok' => $authorizationState === 'authorizationStateReady' && $dispatchStatus !== 'failed',
                 'endpoint' => $endpoint,
                 'accounts_total' => count($accounts),
+                'account_id' => is_string($item['account_id'] ?? null) ? $item['account_id'] : '',
                 'manager_account_external_id' => $managerAccountExternalId,
                 'authorization_state' => $authorizationState,
                 'last_dispatch_status' => $dispatchStatus,
@@ -580,6 +583,7 @@ final readonly class BitrixIntegrationCheckController
             'manager_account_external_id' => $managerAccountExternalId,
             'message' => 'В telegram-gateway нет аккаунта с этим manager_account_external_id.',
             'known_managers' => $this->knownManagers($accounts),
+            'known_accounts' => $this->knownAccounts($accounts),
         ];
     }
 
@@ -601,6 +605,36 @@ final readonly class BitrixIntegrationCheckController
         }
 
         return array_values(array_unique($result));
+    }
+
+    /**
+     * @param array<int, mixed> $accounts
+     * @return list<array<string, string>>
+     */
+    private function knownAccounts(array $accounts): array
+    {
+        $result = [];
+        foreach ($accounts as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $accountId = $item['account_id'] ?? null;
+            $manager = $item['manager_account_external_id'] ?? null;
+            $authorizationState = $item['authorization_state'] ?? null;
+            if (!is_string($accountId) || $accountId === '') {
+                continue;
+            }
+            if (!is_string($manager) || $manager === '') {
+                continue;
+            }
+            $result[] = [
+                'account_id' => $accountId,
+                'manager_account_external_id' => $manager,
+                'authorization_state' => is_string($authorizationState) ? $authorizationState : 'unknown',
+            ];
+        }
+
+        return $result;
     }
 
     private function toBool(mixed $value): bool

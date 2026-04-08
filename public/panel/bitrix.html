@@ -356,6 +356,10 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
         <select id="managerId"></select>
       </div>
       <div>
+        <label for="telegramGatewayAccountId">Telegram аккаунт (gateway)</label>
+        <select id="telegramGatewayAccountId"></select>
+      </div>
+      <div>
         <label for="lineId">ID открытой линии (line_id)</label>
         <input id="lineId" placeholder="Например: 1">
       </div>
@@ -370,6 +374,8 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     </label>
     <div class="toolbar">
       <button class="primary" id="saveBindingBtn">Добавить Привязку Менеджера</button>
+      <button id="syncTelegramManagerBtn">Синхронизировать Telegram Аккаунт</button>
+      <button id="reloadTelegramAccountsBtn">Обновить TG Аккаунты</button>
       <button id="checkPortalBtn">Проверить Портал API</button>
       <button id="checkLineBtn">Проверить Линию</button>
       <button id="healthBtn">Проверить Health</button>
@@ -427,6 +433,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   const bitrixFieldsBlock = document.getElementById("bitrixFieldsBlock");
 
   const managerSelect = document.getElementById("managerId");
+  const telegramGatewayAccountSelect = document.getElementById("telegramGatewayAccountId");
   const statusBox = document.getElementById("status");
   const diagnosticsBox = document.getElementById("diagnosticsBox");
   const logsSummaryBox = document.getElementById("logsSummaryBox");
@@ -622,6 +629,97 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     });
   }
 
+  function gatewayAccountLabel(item) {
+    const accountId = (item.account_id || "").trim();
+    const managerId = (item.manager_account_external_id || "").trim();
+    const state = (item.authorization_state || "unknown").trim();
+    return accountId + " -> " + managerId + " [" + state + "]";
+  }
+
+  function syncTelegramGatewaySelect(items, preferredAccountId = "") {
+    telegramGatewayAccountSelect.innerHTML = "";
+
+    if (!Array.isArray(items) || items.length === 0) {
+      telegramGatewayAccountSelect.appendChild(createOption("", "Нет Telegram аккаунтов"));
+      return;
+    }
+
+    items.forEach((item) => {
+      const accountId = (item.account_id || "").trim();
+      if (accountId === "") {
+        return;
+      }
+      telegramGatewayAccountSelect.appendChild(createOption(accountId, gatewayAccountLabel(item)));
+    });
+
+    if (preferredAccountId !== "") {
+      const found = items.some((item) => (item.account_id || "").trim() === preferredAccountId);
+      if (found) {
+        telegramGatewayAccountSelect.value = preferredAccountId;
+        return;
+      }
+    }
+
+    if (items.length === 1) {
+      telegramGatewayAccountSelect.value = (items[0].account_id || "").trim();
+    }
+  }
+
+  async function loadTelegramGatewayAccounts(preferredAccountId = "") {
+    const payload = await request("/api/bitrix/telegram/accounts", {method: "GET"});
+    const items = payload.items || [];
+    syncTelegramGatewaySelect(items, preferredAccountId);
+    return payload;
+  }
+
+  function applyTelegramGatewayHintFromDiagnostics(payload) {
+    const gateway = payload && payload.telegram_gateway ? payload.telegram_gateway : {};
+    if (!gateway || typeof gateway !== "object") {
+      return;
+    }
+
+    const accountId = typeof gateway.account_id === "string" ? gateway.account_id.trim() : "";
+    if (accountId !== "") {
+      telegramGatewayAccountSelect.value = accountId;
+      return;
+    }
+
+    const knownAccounts = Array.isArray(gateway.known_accounts) ? gateway.known_accounts : [];
+    if (knownAccounts.length === 1) {
+      const onlyAccountId = (knownAccounts[0].account_id || "").trim();
+      if (onlyAccountId !== "") {
+        telegramGatewayAccountSelect.value = onlyAccountId;
+      }
+    }
+  }
+
+  async function syncTelegramAccountManager() {
+    const managerAccountExternalId = managerSelect.value.trim();
+    if (managerAccountExternalId === "") {
+      throw new Error("Выбери менеджера для синхронизации Telegram аккаунта.");
+    }
+
+    const accountId = telegramGatewayAccountSelect.value.trim();
+    const payload = await request("/api/bitrix/telegram/accounts/manager", {
+      method: "POST",
+      body: JSON.stringify({
+        account_id: accountId || undefined,
+        manager_account_external_id: managerAccountExternalId
+      })
+    });
+
+    const after = payload.account_after || {};
+    const afterAccountId = (after.account_id || "").trim();
+    await loadTelegramGatewayAccounts(afterAccountId);
+
+    setStatus(
+      "Telegram аккаунт синхронизирован: " +
+      (afterAccountId || accountId || "<unknown>") +
+      " -> " +
+      managerAccountExternalId
+    );
+  }
+
   async function loadPortals() {
     const payload = await request("/api/bitrix/portals", {method: "GET"});
     portalsBox.textContent = formatJson(payload);
@@ -638,7 +736,15 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   async function reloadData() {
     const portals = await loadPortals();
     const bindings = await loadBindings();
-    setStatus("Данные обновлены. Порталов: " + portals + ", подключений: " + bindings);
+    const gateway = await loadTelegramGatewayAccounts();
+    setStatus(
+      "Данные обновлены. Порталов: " +
+      portals +
+      ", подключений: " +
+      bindings +
+      ", TG аккаунтов: " +
+      (gateway.count || 0)
+    );
   }
 
   function logsSummaryText(summary, gatewayStatus) {
@@ -833,6 +939,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     });
 
     diagnosticsBox.textContent = formatJson(payload);
+    applyTelegramGatewayHintFromDiagnostics(payload);
     setStatus(
       payload.ok ? "Портал Bitrix подключен корректно." : "Проверка портала выявила проблемы.",
       !payload.ok
@@ -859,6 +966,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     });
 
     diagnosticsBox.textContent = formatJson(payload);
+    applyTelegramGatewayHintFromDiagnostics(payload);
 
     const lineStatus = (payload.line && payload.line.status) ? payload.line.status : "unknown";
     if (payload.ok && lineStatus === "ok") {
@@ -914,6 +1022,21 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     input.addEventListener("input", refreshDerivedFields);
   });
 
+  managerSelect.addEventListener("change", () => {
+    const targetManagerId = managerSelect.value.trim();
+    if (targetManagerId === "") {
+      return;
+    }
+    const options = Array.from(telegramGatewayAccountSelect.options);
+    for (const option of options) {
+      const label = option.textContent || "";
+      if (label.includes("-> " + targetManagerId + " [")) {
+        telegramGatewayAccountSelect.value = option.value;
+        return;
+      }
+    }
+  });
+
   document.getElementById("generateMissingTokensBtn").onclick = () => withError(generateMissingTokens);
   document.getElementById("copyEnvBtn").onclick = () => withError(async () => {
     await copyText(envBlock.textContent, ".env блок скопирован.");
@@ -926,6 +1049,11 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   });
   document.getElementById("savePortalBtn").onclick = () => withError(savePortalInstall);
   document.getElementById("saveBindingBtn").onclick = () => withError(saveBinding);
+  document.getElementById("syncTelegramManagerBtn").onclick = () => withError(syncTelegramAccountManager);
+  document.getElementById("reloadTelegramAccountsBtn").onclick = () => withError(async () => {
+    await loadTelegramGatewayAccounts();
+    setStatus("Список Telegram аккаунтов обновлен.");
+  });
   document.getElementById("checkPortalBtn").onclick = () => withError(checkPortalApi);
   document.getElementById("checkLineBtn").onclick = () => withError(checkLineBinding);
   document.getElementById("healthBtn").onclick = () => withError(checkHealth);
