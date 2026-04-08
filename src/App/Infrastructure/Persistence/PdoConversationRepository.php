@@ -38,6 +38,31 @@ final class PdoConversationRepository extends AbstractPdoRepository implements C
         return $row === false ? null : $this->map($row);
     }
 
+    /**
+     * @return list<Conversation>
+     */
+    public function findByContact(ContactId $contactId): array
+    {
+        $rows = $this->execute(
+            'SELECT * FROM conversations WHERE contact_id = :contact_id ORDER BY last_activity_at DESC',
+            ['contact_id' => $contactId->toString()],
+        )->fetchAll();
+
+        if ($rows === false) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $result[] = $this->map($row);
+        }
+
+        return $result;
+    }
+
     public function save(Conversation $conversation): void
     {
         $this->execute(
@@ -72,4 +97,3 @@ final class PdoConversationRepository extends AbstractPdoRepository implements C
         );
     }
 }
-

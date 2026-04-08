@@ -33,6 +33,21 @@ final readonly class BitrixLogsController
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function clear(): array
+    {
+        $deletedAuditRows = $this->query->clearAuditLogs();
+        $gatewayClear = $this->clearTelegramGatewayEvents();
+
+        return [
+            'status' => 'ok',
+            'deleted_audit_rows' => $deletedAuditRows,
+            'telegram_gateway_clear' => $gatewayClear,
+        ];
+    }
+
+    /**
      * @return array{status: array<string, mixed>, events: list<array<string, mixed>>}
      */
     private function telegramGatewayEvents(): array
@@ -123,6 +138,61 @@ final readonly class BitrixLogsController
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function clearTelegramGatewayEvents(): array
+    {
+        $baseUrl = rtrim($this->telegramGatewayBaseUrl, '/');
+        if ($baseUrl === '') {
+            return [
+                'status' => 'skipped',
+                'ok' => true,
+                'message' => 'TELEGRAM_GATEWAY_BASE_URL не задан.',
+            ];
+        }
+
+        $endpoint = $baseUrl . '/v1/debug/events/clear';
+        $headers = ["Content-Type: application/json", "Accept: application/json"];
+        if ($this->telegramGatewayToken !== '') {
+            $headers[] = 'X-Integration-Token: ' . $this->telegramGatewayToken;
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => implode("\r\n", $headers),
+                'content' => '{}',
+                'ignore_errors' => true,
+                'timeout' => 8,
+            ],
+        ]);
+
+        $raw = @file_get_contents($endpoint, false, $context);
+        if ($raw === false) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'Не удалось очистить события telegram-gateway.',
+                'endpoint' => $endpoint,
+            ];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'telegram-gateway вернул некорректный JSON при очистке событий.',
+                'endpoint' => $endpoint,
+            ];
+        }
+
+        $decoded['endpoint'] = $endpoint;
+
+        return $decoded;
+    }
+
+    /**
      * @param list<array<string, mixed>> $auditLogs
      * @param list<array<string, mixed>> $gatewayEvents
      * @return array<string, mixed>
@@ -177,4 +247,3 @@ final readonly class BitrixLogsController
         ];
     }
 }
-

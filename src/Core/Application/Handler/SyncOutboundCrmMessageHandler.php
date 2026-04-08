@@ -63,6 +63,14 @@ final class SyncOutboundCrmMessageHandler
         }
 
         $crmThread = $this->crmThreads->findByProviderAndExternalThreadId($command->crmProvider, $command->externalThreadId);
+        $threadResolvedBy = 'external_thread_id';
+
+        if ($crmThread === null) {
+            $crmThread = $this->resolveCrmThreadByChannelChatId($command);
+            if ($crmThread !== null) {
+                $threadResolvedBy = 'channel_chat_id_fallback';
+            }
+        }
 
         if ($crmThread === null) {
             throw new CrmThreadNotFound(sprintf(
@@ -144,6 +152,8 @@ final class SyncOutboundCrmMessageHandler
             $channelResult->externalMessageId,
             'send_message',
             [
+                'thread_resolved_by' => $threadResolvedBy,
+                'crm_external_thread_id' => $crmThread->externalThreadId(),
                 'conversation_id' => $conversation->id()->toString(),
                 'message_id' => $message->id()->toString(),
             ],
@@ -185,5 +195,26 @@ final class SyncOutboundCrmMessageHandler
     {
         return sprintf('crm:%s', $provider);
     }
-}
 
+    private function resolveCrmThreadByChannelChatId(SyncOutboundCrmMessageCommand $command): ?\ChatSync\Core\Domain\Model\CRMThread
+    {
+        $contactIdentity = $this->contactIdentities->findByProviderTypeAndValue(
+            $command->channelProvider->value,
+            ContactIdentityType::CHANNEL_CHAT_ID,
+            $command->externalThreadId,
+        );
+        if ($contactIdentity === null) {
+            return null;
+        }
+
+        $conversations = $this->conversations->findByContact($contactIdentity->contactId());
+        foreach ($conversations as $conversation) {
+            $thread = $this->crmThreads->findByConversationAndProvider($conversation->id(), $command->crmProvider);
+            if ($thread !== null) {
+                return $thread;
+            }
+        }
+
+        return null;
+    }
+}

@@ -231,6 +231,27 @@ final class InMemoryConversationRepository implements ConversationRepository
         return $this->items[$id->toString()] ?? null;
     }
 
+    /**
+     * @return list<Conversation>
+     */
+    public function findByContact(ContactId $contactId): array
+    {
+        $result = [];
+        foreach ($this->items as $item) {
+            if ($item->contactId()->toString() !== $contactId->toString()) {
+                continue;
+            }
+            $result[] = $item;
+        }
+
+        usort(
+            $result,
+            static fn (Conversation $a, Conversation $b): int => $b->lastActivityAt() <=> $a->lastActivityAt(),
+        );
+
+        return $result;
+    }
+
     public function save(Conversation $conversation): void
     {
         $this->items[$conversation->id()->toString()] = $conversation;
@@ -510,4 +531,3 @@ final class InMemoryExternalOperationLogger implements ExternalOperationLogger
         return $this->entries;
     }
 }
-

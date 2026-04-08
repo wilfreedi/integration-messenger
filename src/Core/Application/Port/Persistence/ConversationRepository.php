@@ -18,6 +18,10 @@ interface ConversationRepository
 
     public function findById(ConversationId $id): ?Conversation;
 
+    /**
+     * @return list<Conversation>
+     */
+    public function findByContact(ContactId $contactId): array;
+
     public function save(Conversation $conversation): void;
 }
-

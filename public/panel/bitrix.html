@@ -397,6 +397,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     <h2>Логи Интеграции</h2>
     <div class="toolbar">
       <button id="reloadLogsBtn">Обновить Логи</button>
+      <button id="clearLogsBtn">Очистить Логи</button>
       <label class="checkbox" style="margin:0;">
         <input id="autoLogs" type="checkbox" checked>
         Автообновление (10с)
@@ -772,6 +773,15 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     }
   }
 
+  async function clearLogs() {
+    const payload = await request("/api/bitrix/logs/clear", {method: "POST"});
+    await loadLogs(true);
+    const clearedAuditRows = payload.deleted_audit_rows || 0;
+    const gatewayInfo = payload.telegram_gateway_clear || {};
+    const clearedGateway = gatewayInfo.cleared_events || 0;
+    setStatus("Логи очищены. audit_logs: " + clearedAuditRows + ", telegram-gateway events: " + clearedGateway);
+  }
+
   function firstNonEmpty(values) {
     for (const value of values) {
       if (typeof value === "string" && value.trim() !== "") {
@@ -1070,6 +1080,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   document.getElementById("reloadLogsBtn").onclick = () => withError(async () => {
     await loadLogs(false);
   });
+  document.getElementById("clearLogsBtn").onclick = () => withError(clearLogs);
 
   applyBitrixAuthFromUrl();
   withError(async () => {

@@ -13,6 +13,7 @@ use ChatSync\App\Query\MessageMappingLookup;
 use ChatSync\Core\Application\Handler\SyncOutboundCrmMessageHandler;
 use ChatSync\Core\Domain\Enum\ExternalSystemType;
 use InvalidArgumentException;
+use Throwable;
 
 final readonly class BitrixOpenLinesWebhookController
 {
@@ -42,53 +43,63 @@ final readonly class BitrixOpenLinesWebhookController
         $deliveryAckSent = 0;
 
         foreach ($messages as $message) {
-            $result = ($this->handler)($message->command);
+            try {
+                $result = ($this->handler)($message->command);
 
-            $ackSent = false;
-            if (
-                $message->imMessageId !== null
-                && $message->imChatId !== null
-            ) {
-                $channelExternalMessageId = $result->messageId !== null
-                    ? $this->messageLookup->findChannelExternalMessageIdByInternalMessageId(
-                        $result->messageId,
-                        $message->command->channelProvider->value,
-                    )
-                    : $this->messageLookup->findChannelExternalMessageIdByCrmExternalMessage(
-                        $message->command->crmProvider->value,
-                        $message->command->externalThreadId,
-                        $message->command->externalMessageId,
-                        $message->command->channelProvider->value,
-                    );
-
-                if ($channelExternalMessageId !== null) {
-                    $ackApi = $this->resolveDeliveryAckApi(
-                        $result->messageId,
-                        $message->command->crmProvider->value,
-                        $message->command->externalThreadId,
-                        $message->command->externalMessageId,
-                        $message->command->channelProvider->value,
-                    );
-
-                    if ($ackApi !== null) {
-                        $ackApi->sendDeliveryStatus(
-                            $message->imMessageId,
-                            $message->imChatId,
-                            [$channelExternalMessageId]
+                $ackSent = false;
+                if (
+                    $message->imMessageId !== null
+                    && $message->imChatId !== null
+                ) {
+                    $channelExternalMessageId = $result->messageId !== null
+                        ? $this->messageLookup->findChannelExternalMessageIdByInternalMessageId(
+                            $result->messageId,
+                            $message->command->channelProvider->value,
+                        )
+                        : $this->messageLookup->findChannelExternalMessageIdByCrmExternalMessage(
+                            $message->command->crmProvider->value,
+                            $message->command->externalThreadId,
+                            $message->command->externalMessageId,
+                            $message->command->channelProvider->value,
                         );
-                        $deliveryAckSent++;
-                        $ackSent = true;
+
+                    if ($channelExternalMessageId !== null) {
+                        $ackApi = $this->resolveDeliveryAckApi(
+                            $result->messageId,
+                            $message->command->crmProvider->value,
+                            $message->command->externalThreadId,
+                            $message->command->externalMessageId,
+                            $message->command->channelProvider->value,
+                        );
+
+                        if ($ackApi !== null) {
+                            $ackApi->sendDeliveryStatus(
+                                $message->imMessageId,
+                                $message->imChatId,
+                                [$channelExternalMessageId]
+                            );
+                            $deliveryAckSent++;
+                            $ackSent = true;
+                        }
                     }
                 }
-            }
 
-            $results[] = [
-                'event_id' => $message->command->eventId,
-                'status' => $result->processed ? 'processed' : 'skipped',
-                'reason' => $result->reason,
-                'message_id' => $result->messageId,
-                'delivery_ack_sent' => $ackSent,
-            ];
+                $results[] = [
+                    'event_id' => $message->command->eventId,
+                    'status' => $result->processed ? 'processed' : 'skipped',
+                    'reason' => $result->reason,
+                    'message_id' => $result->messageId,
+                    'delivery_ack_sent' => $ackSent,
+                ];
+            } catch (Throwable $exception) {
+                $results[] = [
+                    'event_id' => $message->command->eventId,
+                    'status' => 'failed',
+                    'reason' => 'processing_error',
+                    'error' => $exception->getMessage(),
+                    'delivery_ack_sent' => false,
+                ];
+            }
         }
 
         return [

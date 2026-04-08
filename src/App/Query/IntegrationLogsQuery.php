@@ -68,5 +68,12 @@ final readonly class IntegrationLogsQuery
 
         return $result;
     }
-}
 
+    public function clearAuditLogs(): int
+    {
+        $statement = $this->pdo->prepare('DELETE FROM audit_logs');
+        $statement->execute();
+
+        return $statement->rowCount();
+    }
+}

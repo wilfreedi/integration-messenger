@@ -319,10 +319,10 @@ final readonly class BitrixIntegrationCheckController
                     $appInfo = $response['result'] ?? null;
                     if (is_array($appInfo) && array_key_exists('INSTALLED', $appInfo) && $this->toBool($appInfo['INSTALLED']) !== true) {
                         return [
-                            'status' => 'failed',
-                            'ok' => false,
+                            'status' => 'unknown',
+                            'ok' => true,
                             'method' => $method,
-                            'message' => 'Приложение не установлено в портале (app.info.INSTALLED=false).',
+                            'message' => 'app.info вернул INSTALLED=false. В некоторых порталах это не блокирует работу Open Lines, проверь доставку сообщением.',
                             'response_preview' => $this->shortPreview($response),
                         ];
                     }

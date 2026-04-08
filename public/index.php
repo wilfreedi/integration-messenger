@@ -113,6 +113,15 @@ try {
         $json->respond($container->bitrixLogsController()->handle($resolvedLimit));
     }
 
+    if ($method === 'POST' && $path === '/api/bitrix/logs/clear') {
+        assertSharedToken(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+            'Invalid integration management token.',
+        );
+        $json->respond($container->bitrixLogsController()->clear());
+    }
+
     if ($method === 'GET' && $path === '/api/bitrix/telegram/accounts') {
         assertSharedToken(
             $container->config()->bitrixManagementToken,

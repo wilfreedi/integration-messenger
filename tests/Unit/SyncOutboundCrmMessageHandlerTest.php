@@ -45,6 +45,7 @@ final class SyncOutboundCrmMessageHandlerTest
     public static function run(): void
     {
         self::itSendsOutboundCrmRepliesToChannel();
+        self::itResolvesCrmThreadByChannelChatFallback();
         self::itSkipsDuplicateOutboundExternalMessages();
     }
 
@@ -239,5 +240,91 @@ final class SyncOutboundCrmMessageHandlerTest
         Assertions::assertCount(1, $messages->all(), 'Only one outbound message must be stored.');
         Assertions::assertCount(1, $deliveries->all(), 'Only one outbound delivery must be stored.');
     }
-}
 
+    private static function itResolvesCrmThreadByChannelChatFallback(): void
+    {
+        $clock = new FixedClock(new DateTimeImmutable('2026-04-07T11:00:00+05:00'));
+        $ids = new SequenceIdGenerator('outbound-fallback');
+
+        $managerAccounts = new InMemoryManagerAccountRepository();
+        $contactIdentities = new InMemoryContactIdentityRepository();
+        $conversations = new InMemoryConversationRepository();
+        $crmThreads = new InMemoryCrmThreadRepository();
+        $messages = new InMemoryMessageRepository();
+        $attachments = new InMemoryAttachmentRepository();
+        $deliveries = new InMemoryDeliveryRepository();
+        $messageReferences = new InMemoryMessageReferenceRepository();
+        $processedEvents = new InMemoryProcessedEventRepository();
+        $logger = new InMemoryExternalOperationLogger();
+        $channelConnector = new SpyChannelConnector();
+
+        $managerAccount = new ManagerAccount(
+            ManagerAccountId::fromString('manager-account-5'),
+            ManagerId::fromString('manager-5'),
+            ChannelProvider::TELEGRAM,
+            'telegram-manager-account',
+            ManagerAccountStatus::ACTIVE,
+            $clock->now(),
+        );
+        $managerAccounts->save($managerAccount);
+
+        $contactId = ContactId::fromString('contact-3');
+        $conversation = new Conversation(
+            ConversationId::fromString('conversation-3'),
+            $managerAccount->id(),
+            $contactId,
+            ConversationStatus::OPEN,
+            $clock->now(),
+            $clock->now(),
+        );
+        $conversations->save($conversation);
+
+        $contactIdentities->save(new ContactIdentity(
+            ContactIdentityId::fromString('contact-identity-3'),
+            $contactId,
+            ChannelProvider::TELEGRAM->value,
+            ContactIdentityType::CHANNEL_CHAT_ID,
+            'telegram-chat-44',
+            true,
+            $clock->now(),
+        ));
+
+        $crmThreads->save(new CRMThread(
+            CrmThreadId::fromString('crm-thread-3'),
+            $conversation->id(),
+            CrmProvider::BITRIX,
+            'bitrix-thread-conversation-3',
+            $clock->now(),
+        ));
+
+        $handler = new SyncOutboundCrmMessageHandler(
+            $crmThreads,
+            $conversations,
+            $managerAccounts,
+            $contactIdentities,
+            $messages,
+            $attachments,
+            $deliveries,
+            $messageReferences,
+            $processedEvents,
+            new StaticChannelConnectorRegistry([ChannelProvider::TELEGRAM->value => $channelConnector]),
+            $logger,
+            $ids,
+            $clock,
+        );
+
+        $result = $handler(new SyncOutboundCrmMessageCommand(
+            eventId: 'bitrix-event-fallback-1',
+            crmProvider: CrmProvider::BITRIX,
+            channelProvider: ChannelProvider::TELEGRAM,
+            externalThreadId: 'telegram-chat-44',
+            externalMessageId: 'bitrix-message-fallback-1',
+            body: 'Reply from Bitrix via fallback',
+            occurredAt: $clock->now(),
+        ));
+
+        Assertions::assertTrue($result->processed, 'Outbound message must be processed by fallback thread resolution.');
+        Assertions::assertSame(1, $channelConnector->sendMessageCalls, 'Channel send must happen once.');
+        Assertions::assertCount(1, $messages->all(), 'One outbound message is expected.');
+    }
+}

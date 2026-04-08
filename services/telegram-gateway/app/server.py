@@ -164,6 +164,13 @@ class GatewayRequestHandler(BaseHTTPRequestHandler):
                 )
                 return
 
+            if path == "/v1/debug/events/clear":
+                self._respond_json(
+                    HTTPStatus.OK,
+                    GATEWAY.clear_recent_events(),
+                )
+                return
+
             if path == "/v1/auth/phone":
                 self._respond_json(
                     HTTPStatus.ACCEPTED,

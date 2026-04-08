@@ -203,6 +203,12 @@ class AccountSession:
         with self._recent_events_lock:
             return list(self._recent_events)
 
+    def clear_recent_events(self) -> int:
+        with self._recent_events_lock:
+            count = len(self._recent_events)
+            self._recent_events = []
+        return count
+
     def wait_until_interactive(self, timeout_seconds: float = 12.0) -> None:
         terminal_states = {
             "authorizationStateWaitPhoneNumber",
@@ -457,11 +463,13 @@ class AccountSession:
                 self._append_recent_event(
                     {
                         "account_id": self._account.account_id,
-                        "direction": "outgoing_observed",
+                        "direction": "skipped",
+                        "reason": "outgoing_message",
                         "chat_id": str(message.get("chat_id", "")),
                         "external_message_id": str(message.get("id", "")),
                     }
                 )
+                return
 
             self._dispatch_queue.put(message)
 
@@ -879,6 +887,20 @@ class TelegramGateway:
         for session in sessions:
             events.extend(session.recent_events())
         return events[-200:]
+
+    def clear_recent_events(self) -> dict[str, Any]:
+        with self._accounts_lock:
+            sessions = list(self._sessions.values())
+
+        cleared = 0
+        for session in sessions:
+            cleared += session.clear_recent_events()
+
+        return {
+            "status": "ok",
+            "ok": True,
+            "cleared_events": cleared,
+        }
 
     def legacy_submit_phone(self, phone_number: str) -> dict[str, Any]:
         account_id = self._ensure_default_account()
