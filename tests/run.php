@@ -14,8 +14,10 @@ require __DIR__ . '/Support/TestEnvironment.php';
 require __DIR__ . '/Unit/BitrixAppInstallValidatorTest.php';
 require __DIR__ . '/Unit/BitrixOpenLinesApiTest.php';
 require __DIR__ . '/Unit/BitrixOpenLinesConnectorTest.php';
+require __DIR__ . '/Unit/RestBitrixOpenLinesConnectorLifecycleTest.php';
 require __DIR__ . '/Unit/BitrixOpenLinesWebhookValidatorTest.php';
 require __DIR__ . '/Unit/GatewayTelegramChannelConnectorTest.php';
+require __DIR__ . '/Unit/PanelAccessGuardTest.php';
 require __DIR__ . '/Unit/SyncInboundChannelMessageHandlerTest.php';
 require __DIR__ . '/Unit/SyncOutboundCrmMessageHandlerTest.php';
 
@@ -23,8 +25,10 @@ $tests = [
     ChatSync\Tests\Unit\BitrixAppInstallValidatorTest::class,
     ChatSync\Tests\Unit\BitrixOpenLinesApiTest::class,
     ChatSync\Tests\Unit\BitrixOpenLinesConnectorTest::class,
+    ChatSync\Tests\Unit\RestBitrixOpenLinesConnectorLifecycleTest::class,
     ChatSync\Tests\Unit\BitrixOpenLinesWebhookValidatorTest::class,
     ChatSync\Tests\Unit\GatewayTelegramChannelConnectorTest::class,
+    ChatSync\Tests\Unit\PanelAccessGuardTest::class,
     ChatSync\Tests\Unit\SyncInboundChannelMessageHandlerTest::class,
     ChatSync\Tests\Unit\SyncOutboundCrmMessageHandlerTest::class,
 ];

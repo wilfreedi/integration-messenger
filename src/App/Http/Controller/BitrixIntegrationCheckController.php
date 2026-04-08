@@ -228,18 +228,6 @@ final readonly class BitrixIntegrationCheckController
 
         $configured = $this->toBool($result['CONFIGURED'] ?? null);
         $active = $this->toBool($result['ACTIVE'] ?? ($result['STATUS'] ?? null));
-        if ($configured && $active) {
-            return [
-                'status' => 'ok',
-                'ok' => true,
-                'connector_id' => $connectorId,
-                'line_id' => $lineId,
-                'configured' => true,
-                'active' => true,
-                'message' => 'Коннектор активен и настроен.',
-                'response_preview' => $this->shortPreview($response),
-            ];
-        }
 
         try {
             $this->connectorLifecycle->ensure(
@@ -261,6 +249,7 @@ final readonly class BitrixIntegrationCheckController
             $afterConfigured = is_array($afterResult) && $this->toBool($afterResult['CONFIGURED'] ?? null);
             $afterActive = is_array($afterResult) && $this->toBool($afterResult['ACTIVE'] ?? ($afterResult['STATUS'] ?? null));
             $afterOk = $afterConfigured && $afterActive;
+            $statusChanged = (!$configured || !$active) && $afterOk;
 
             return [
                 'status' => $afterOk ? 'ok' : 'failed',
@@ -270,7 +259,9 @@ final readonly class BitrixIntegrationCheckController
                 'configured' => $afterConfigured,
                 'active' => $afterActive,
                 'message' => $afterOk
-                    ? 'Коннектор был автоматически настроен (register/activate/data.set).'
+                    ? ($statusChanged
+                        ? 'Коннектор был автоматически настроен (register/activate/data.set).'
+                        : 'Коннектор активен; параметры webhook синхронизированы (data.set).')
                     : 'Автонастройка выполнена, но статус коннектора остался неготов.',
                 'response_preview' => $this->shortPreview($after),
             ];
@@ -287,17 +278,6 @@ final readonly class BitrixIntegrationCheckController
                 'response_preview' => $this->shortPreview($response),
             ];
         }
-
-        return [
-            'status' => 'failed',
-            'ok' => false,
-            'connector_id' => $connectorId,
-            'line_id' => $lineId,
-            'configured' => $configured,
-            'active' => $active,
-            'message' => 'Коннектор не готов. Нужны register/activate/connector.data.set.',
-            'response_preview' => $this->shortPreview($response),
-        ];
     }
 
     /**

@@ -381,15 +381,30 @@ final class ApplicationContainer
         return $this->bitrixOpenLinesLifecycle ??= new RestBitrixOpenLinesConnectorLifecycle(
             $this->bitrixRestClient(),
             $this->placementHandlerUrl(),
+            $this->openLinesWebhookUrl(),
         );
     }
 
     private function placementHandlerUrl(): string
     {
         if ($this->config->siteDomain !== '') {
-            return 'https://' . $this->config->siteDomain . '/panel/bitrix';
+            return 'https://' . $this->config->siteDomain . '/bitrix/app';
         }
 
-        return 'https://example.com/panel/bitrix';
+        return 'https://example.com/bitrix/app';
+    }
+
+    private function openLinesWebhookUrl(): string
+    {
+        $base = $this->config->siteDomain !== ''
+            ? ('https://' . $this->config->siteDomain)
+            : 'https://example.com';
+
+        $url = $base . '/api/webhooks/bitrix/open-lines';
+        if ($this->config->bitrixWebhookToken !== '') {
+            $url .= '?token=' . rawurlencode($this->config->bitrixWebhookToken);
+        }
+
+        return $url;
     }
 }

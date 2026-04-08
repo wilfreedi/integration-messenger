@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use ChatSync\App\Bootstrap\ApplicationContainer;
 use ChatSync\App\Http\Json;
+use ChatSync\App\Security\PanelAccessGuard;
 use ChatSync\Core\Application\Exception\ContactIdentityNotFound;
 use ChatSync\Core\Application\Exception\CrmThreadNotFound;
 use ChatSync\Core\Application\Exception\ManagerAccountNotFound;
@@ -16,16 +17,97 @@ require __DIR__ . '/../vendor/autoload.php';
 
 $json = new Json();
 $container = new ApplicationContainer(AppConfig::fromEnvironment());
+$panelAccess = new PanelAccessGuard($container->config());
+$panelAccess->startSession();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+$clientIp = clientIpAddress();
+$userAgent = is_string($_SERVER['HTTP_USER_AGENT'] ?? null) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
 
 try {
+    if ($panelAccess->isSensitivePath($path)) {
+        $panelAccess->banIp($clientIp, 'sensitive_path_probe');
+        $json->respond([
+            'error' => 'access_denied',
+            'message' => 'Access denied.',
+        ], 403);
+    }
+
+    $ipStatus = $panelAccess->ipStatus($clientIp);
+    if (($ipStatus['banned'] ?? false) === true) {
+        $json->respond([
+            'error' => 'access_denied',
+            'message' => 'Access denied for this IP.',
+        ], 403);
+    }
+
     if ($method === 'GET' && $path === '/health') {
         $json->respond($container->healthController()->handle());
     }
 
-    if ($method === 'GET' && ($path === '/panel/bitrix' || $path === '/panel/bitrix/')) {
-        header('Location: /panel/bitrix.html', true, 302);
+    if ($method === 'GET' && ($path === '/panel/login' || $path === '/panel/login/' || $path === '/panel/login.html')) {
+        if ($panelAccess->isAuthenticated($clientIp, $userAgent)) {
+            header('Location: /panel/bitrix', true, 302);
+            exit;
+        }
+
+        servePanelHtmlPage('login.html');
+    }
+
+    if ($method === 'GET' && $path === '/api/panel/auth/status') {
+        $json->respond($panelAccess->authStatus($clientIp, $userAgent));
+    }
+
+    if ($method === 'POST' && $path === '/api/panel/auth/login') {
+        $payload = $json->decodeRequestBody();
+        $password = $payload['password'] ?? null;
+        if (!is_string($password)) {
+            $json->respond([
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'Field "password" must be a string.',
+            ], 422);
+        }
+
+        $result = $panelAccess->attemptLogin($password, $clientIp, $userAgent);
+        $statusCode = is_int($result['status_code'] ?? null)
+            ? (int) $result['status_code']
+            : (($result['ok'] ?? false) === true ? 200 : 401);
+        unset($result['status_code']);
+
+        $returnTo = safeReturnTo(is_string($payload['return_to'] ?? null) ? $payload['return_to'] : '');
+        $result['redirect_to'] = $returnTo !== '' ? $returnTo : '/panel/bitrix';
+
+        $json->respond($result, $statusCode);
+    }
+
+    if ($method === 'POST' && $path === '/api/panel/auth/logout') {
+        $panelAccess->logout();
+        $json->respond([
+            'status' => 'ok',
+            'ok' => true,
+        ]);
+    }
+
+    if (requiresPanelAuthentication($path)) {
+        if (!$panelAccess->isAuthenticated($clientIp, $userAgent)) {
+            if (isPanelHtmlPath($path)) {
+                redirectToPanelLogin(currentRequestUri());
+            }
+
+            $json->respond([
+                'error' => 'auth_required',
+                'message' => 'Panel authentication required.',
+            ], 401);
+        }
+    }
+
+    if ($method === 'GET' && ($path === '/panel/bitrix' || $path === '/panel/bitrix/' || $path === '/panel/bitrix.html')) {
+        servePanelHtmlPage('bitrix.html');
+    }
+
+    if ($method === 'GET' && $path === '/panel') {
+        header('Location: /panel/bitrix', true, 302);
         exit;
     }
 
@@ -321,7 +403,7 @@ function redirectBitrixAppToPanel(array $queryParams, array $formParams): void
     }
 
     $query = http_build_query($params);
-    $location = '/panel/bitrix.html' . ($query !== '' ? ('?' . $query) : '');
+    $location = '/panel/bitrix' . ($query !== '' ? ('?' . $query) : '');
     header('Location: ' . $location, true, 302);
 }
 
@@ -335,4 +417,100 @@ function scalarParam(mixed $value): ?string
     }
 
     return null;
+}
+
+function requiresPanelAuthentication(string $path): bool
+{
+    if ($path === '/bitrix/app' || $path === '/bitrix/app/') {
+        return true;
+    }
+
+    if (str_starts_with($path, '/panel/bitrix')) {
+        return true;
+    }
+
+    if (str_starts_with($path, '/api/bitrix/')) {
+        return true;
+    }
+
+    if ($path === '/api/manager-accounts' || $path === '/api/debug/state') {
+        return true;
+    }
+
+    return false;
+}
+
+function isPanelHtmlPath(string $path): bool
+{
+    return str_starts_with($path, '/panel/')
+        || $path === '/bitrix/app'
+        || $path === '/bitrix/app/';
+}
+
+function servePanelHtmlPage(string $fileName): never
+{
+    $safeFileName = basename($fileName);
+    $fullPath = __DIR__ . '/panel/' . $safeFileName;
+    if (!is_file($fullPath)) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Not found';
+        exit;
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    readfile($fullPath);
+    exit;
+}
+
+function clientIpAddress(): string
+{
+    $forwardedFor = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+    if (is_string($forwardedFor) && $forwardedFor !== '') {
+        $parts = explode(',', $forwardedFor);
+        $first = trim($parts[0] ?? '');
+        if ($first !== '') {
+            return $first;
+        }
+    }
+
+    $remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '';
+
+    return is_string($remoteAddress) && $remoteAddress !== '' ? $remoteAddress : '0.0.0.0';
+}
+
+function currentRequestUri(): string
+{
+    $uri = $_SERVER['REQUEST_URI'] ?? '/';
+
+    return is_string($uri) && $uri !== '' ? $uri : '/';
+}
+
+function safeReturnTo(string $returnTo): string
+{
+    if ($returnTo === '') {
+        return '';
+    }
+
+    if (!str_starts_with($returnTo, '/')) {
+        return '';
+    }
+
+    if (str_starts_with($returnTo, '//')) {
+        return '';
+    }
+
+    return $returnTo;
+}
+
+function redirectToPanelLogin(string $returnTo): never
+{
+    $safePath = safeReturnTo($returnTo);
+    $location = '/panel/login';
+    if ($safePath !== '') {
+        $location .= '?return_to=' . urlencode($safePath);
+    }
+
+    header('Location: ' . $location, true, 302);
+    exit;
 }

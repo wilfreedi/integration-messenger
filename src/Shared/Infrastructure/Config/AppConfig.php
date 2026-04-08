@@ -26,6 +26,13 @@ final readonly class AppConfig
         public string $telegramConnectorMode,
         public string $telegramGatewayBaseUrl,
         public string $telegramGatewayToken,
+        public string $panelAuthPassword,
+        public int $panelAuthSessionTtlSeconds,
+        public int $panelAuthMaxAttempts,
+        public int $panelAuthLockSeconds,
+        public int $panelAuthBanSeconds,
+        public int $panelAuthPasswordMaxLength,
+        public string $panelAuthStateFile,
     ) {
     }
 
@@ -49,6 +56,13 @@ final readonly class AppConfig
             self::env('TELEGRAM_CONNECTOR_MODE', 'stub'),
             rtrim(self::env('TELEGRAM_GATEWAY_BASE_URL', 'http://telegram-gateway:8090'), '/'),
             self::env('TELEGRAM_GATEWAY_TOKEN', ''),
+            self::env('PANEL_AUTH_PASSWORD', ''),
+            max(300, self::envInt('PANEL_AUTH_SESSION_TTL_SECONDS', 86400)),
+            max(1, self::envInt('PANEL_AUTH_MAX_ATTEMPTS', 5)),
+            max(60, self::envInt('PANEL_AUTH_LOCK_SECONDS', 900)),
+            max(60, self::envInt('PANEL_AUTH_BAN_SECONDS', 315360000)),
+            max(8, self::envInt('PANEL_AUTH_PASSWORD_MAX_LENGTH', 128)),
+            self::env('PANEL_AUTH_STATE_FILE', '/tmp/chat-sync-panel-auth-state.json'),
         );
     }
 

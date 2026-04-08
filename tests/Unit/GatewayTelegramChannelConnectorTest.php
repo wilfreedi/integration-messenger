@@ -41,6 +41,13 @@ final class GatewayTelegramChannelConnectorTest
                 telegramConnectorMode: 'gateway',
                 telegramGatewayBaseUrl: 'http://telegram-gateway:8090',
                 telegramGatewayToken: 'secret-token',
+                panelAuthPassword: '',
+                panelAuthSessionTtlSeconds: 86400,
+                panelAuthMaxAttempts: 5,
+                panelAuthLockSeconds: 900,
+                panelAuthBanSeconds: 315360000,
+                panelAuthPasswordMaxLength: 128,
+                panelAuthStateFile: '/tmp/chat-sync-tests-panel-auth-state.json',
             ),
             $httpClient,
         );

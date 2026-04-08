@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход в Панель</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --line: #d8ddea;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #1d4ed8;
+      --danger: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top right, #dbeafe 0, var(--bg) 45%);
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      padding: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 22px;
+    }
+
+    p {
+      margin: 0 0 16px 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+    }
+
+    button {
+      margin-top: 14px;
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button[disabled] {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .status.error {
+      border-color: #fca5a5;
+      background: #fef2f2;
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+<main class="card">
+  <h1>Вход в Панель</h1>
+  <p>Доступ к настройкам интеграции защищен паролем.</p>
+
+  <form id="loginForm">
+    <label for="password">Пароль</label>
+    <input id="password" type="password" autocomplete="current-password" maxlength="128" required>
+    <button id="submitBtn" type="submit">Войти</button>
+  </form>
+
+  <div id="status" class="status">Ожидание ввода пароля.</div>
+</main>
+
+<script>
+  const loginForm = document.getElementById("loginForm");
+  const passwordInput = document.getElementById("password");
+  const submitBtn = document.getElementById("submitBtn");
+  const statusBox = document.getElementById("status");
+
+  function setStatus(message, isError = false) {
+    statusBox.textContent = message;
+    statusBox.className = isError ? "status error" : "status";
+  }
+
+  function safeReturnTo(raw) {
+    if (typeof raw !== "string" || raw === "") {
+      return "";
+    }
+    if (!raw.startsWith("/") || raw.startsWith("//")) {
+      return "";
+    }
+    return raw;
+  }
+
+  async function checkStatus() {
+    const response = await fetch("/api/panel/auth/status", {
+      method: "GET",
+      headers: {"Content-Type": "application/json"},
+      credentials: "same-origin"
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok && payload.authenticated === true) {
+      const returnToParam = new URLSearchParams(window.location.search).get("return_to") || "";
+      const returnTo = safeReturnTo(returnToParam);
+      window.location.href = returnTo || "/panel/bitrix";
+      return;
+    }
+  }
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const password = passwordInput.value;
+    if (password.length < 1 || password.length > 128) {
+      setStatus("Длина пароля должна быть от 1 до 128 символов.", true);
+      return;
+    }
+
+    submitBtn.disabled = true;
+    setStatus("Проверка...");
+    const returnToParam = new URLSearchParams(window.location.search).get("return_to") || "";
+    const returnTo = safeReturnTo(returnToParam);
+
+    try {
+      const response = await fetch("/api/panel/auth/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify({
+          password,
+          return_to: returnTo
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok !== true) {
+        const message = payload.message || ("Ошибка входа (HTTP " + response.status + ")");
+        setStatus(message, true);
+        return;
+      }
+
+      setStatus("Успешный вход. Перенаправление...");
+      window.location.href = safeReturnTo(payload.redirect_to || "") || "/panel/bitrix";
+    } catch (error) {
+      setStatus("Сетевая ошибка при входе.", true);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  checkStatus().catch(() => {});
+</script>
+</body>
+</html>

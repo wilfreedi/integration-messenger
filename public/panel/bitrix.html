@@ -161,6 +161,9 @@
     <p class="hint">
       Поток разделен: сначала подключаешь портал, потом отдельно добавляешь менеджеров по линиям. Менеджеров можно привязывать сколько угодно.
     </p>
+    <div class="toolbar">
+      <button id="logoutBtn">Выйти Из Панели</button>
+    </div>
   </section>
 
   <section class="panel">
@@ -444,6 +447,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   const bindingsBox = document.getElementById("bindingsBox");
   const bindingPortalDomainInput = document.getElementById("bindingPortalDomain");
   const portalDomainsList = document.getElementById("portalDomainsList");
+  const logoutBtn = document.getElementById("logoutBtn");
 
   function setStatus(message, isError = false) {
     statusBox.textContent = message;
@@ -494,7 +498,13 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
       "BITRIX_MANAGEMENT_TOKEN=" + (managementToken || "<set_me>") + "\n" +
       "BITRIX_DEFAULT_CHANNEL_PROVIDER=telegram\n" +
       "SITE_DOMAIN=" + (domain || "<your_domain>") + "\n" +
-      "ACME_EMAIL=" + acmeEmail;
+      "ACME_EMAIL=" + acmeEmail + "\n" +
+      "PANEL_AUTH_PASSWORD=<set_strong_password>\n" +
+      "PANEL_AUTH_SESSION_TTL_SECONDS=86400\n" +
+      "PANEL_AUTH_MAX_ATTEMPTS=5\n" +
+      "PANEL_AUTH_LOCK_SECONDS=900\n" +
+      "PANEL_AUTH_BAN_SECONDS=315360000\n" +
+      "PANEL_AUTH_PASSWORD_MAX_LENGTH=128";
 
     bitrixFieldsBlock.textContent =
       "Путь вашего обработчика:\n" +
@@ -539,6 +549,10 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401 && payload.error === "auth_required") {
+        window.location.href = "/panel/login?return_to=" + encodeURIComponent(window.location.pathname + window.location.search);
+        throw new Error("Требуется авторизация панели.");
+      }
       throw new Error(payload.message || ("HTTP " + response.status));
     }
     return payload;
@@ -559,6 +573,10 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401 && payload.error === "auth_required") {
+        window.location.href = "/panel/login?return_to=" + encodeURIComponent(window.location.pathname + window.location.search);
+        throw new Error("Требуется авторизация панели.");
+      }
       throw new Error(payload.message || ("HTTP " + response.status));
     }
     return payload;
@@ -1055,6 +1073,18 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
       }
     }
   });
+
+  logoutBtn.onclick = async () => {
+    try {
+      await fetch("/api/panel/auth/logout", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin"
+      });
+    } catch (_error) {
+    }
+    window.location.href = "/panel/login";
+  };
 
   document.getElementById("generateMissingTokensBtn").onclick = () => withError(generateMissingTokens);
   document.getElementById("copyEnvBtn").onclick = () => withError(async () => {

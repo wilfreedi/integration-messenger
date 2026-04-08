@@ -11,18 +11,19 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
     public function __construct(
         private BitrixRestClient $restClient,
         private string $placementHandlerUrl,
+        private string $webhookUrl,
     ) {
     }
 
     public function ensure(string $baseUrl, string $connectorId, string $lineId, ?string $authToken): void
     {
         $status = $this->status($baseUrl, $connectorId, $lineId, $authToken);
-        if (($status['ok'] ?? false) === true) {
-            return;
+        if (($status['ok'] ?? false) !== true) {
+            $this->register($baseUrl, $connectorId, $authToken);
+            $this->activate($baseUrl, $connectorId, $lineId, $authToken);
         }
 
-        $this->register($baseUrl, $connectorId, $authToken);
-        $this->activate($baseUrl, $connectorId, $lineId, $authToken);
+        // Keep connector endpoints in sync with current deployment URL/token.
         $this->setConnectorData($baseUrl, $connectorId, $lineId, $authToken);
 
         $status = $this->status($baseUrl, $connectorId, $lineId, $authToken);
@@ -142,8 +143,8 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
                 'LINE' => ctype_digit($lineId) ? (int) $lineId : $lineId,
                 'DATA' => [
                     'ID' => $dataId,
-                    'URL' => $this->placementHandlerUrl,
-                    'URL_IM' => $this->placementHandlerUrl,
+                    'URL' => $this->webhookUrl,
+                    'URL_IM' => $this->webhookUrl,
                     'NAME' => $displayName,
                 ],
             ], $authToken),

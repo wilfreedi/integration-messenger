@@ -226,7 +226,15 @@ curl -X POST http://127.0.0.1:8080/api/webhooks/crm-message \
 BITRIX_CONNECTOR_MODE=rest
 BITRIX_WEBHOOK_TOKEN=<optional_shared_token>
 BITRIX_MANAGEMENT_TOKEN=<optional_token_for_/api/bitrix/*>
+PANEL_AUTH_PASSWORD=<strong_password_for_/panel/*>
 ```
+
+Панель и management API теперь дополнительно защищены сессионной авторизацией (`/panel/login`):
+
+- `PANEL_AUTH_PASSWORD` - обязательный пароль для входа в панель.
+- `PANEL_AUTH_SESSION_TTL_SECONDS` - TTL сессии в секундах (по умолчанию `86400`, 24 часа).
+- `PANEL_AUTH_MAX_ATTEMPTS` + `PANEL_AUTH_LOCK_SECONDS` - лимит неудачных вводов и временная блокировка IP.
+- `PANEL_AUTH_BAN_SECONDS` - длительность бана IP (в том числе при попытке запроса `/.env`).
 
 Что делает `rest`-адаптер:
 
