@@ -68,6 +68,15 @@ try {
         $json->respond($container->bitrixSetupProfileController()->handle());
     }
 
+    if ($method === 'POST' && $path === '/api/bitrix/setup/tokens/generate-missing') {
+        assertSharedToken(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+            'Invalid integration management token.',
+        );
+        $json->respond($container->bitrixSetupGenerateTokensController()->handle());
+    }
+
     if ($method === 'POST' && $path === '/api/bitrix/app/install') {
         assertSharedToken(
             $container->config()->bitrixManagementToken,

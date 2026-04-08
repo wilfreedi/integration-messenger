@@ -11,7 +11,6 @@
       --text: #1c2430;
       --muted: #5c697a;
       --line: #d8e0ea;
-      --ok: #087a5a;
       --danger: #b42318;
       --accent: #0f5ec7;
     }
@@ -148,11 +147,7 @@
       font-size: 13px;
     }
     .checkbox input { width: auto; }
-    .steps {
-      margin: 0;
-      padding-left: 18px;
-      color: var(--text);
-    }
+    .steps { margin: 0; padding-left: 18px; }
     .steps li { margin: 5px 0; }
     @media (max-width: 980px) {
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
@@ -164,7 +159,7 @@
   <section class="panel">
     <h1>Инструкция Подключения Bitrix</h1>
     <p class="hint">
-      Страница подставляет твои текущие настройки из сервера. Если токены уже есть в `.env`, они подтянутся автоматически.
+      Поток разделен: сначала подключаешь портал, потом отдельно добавляешь менеджеров по линиям. Менеджеров можно привязывать сколько угодно.
     </p>
   </section>
 
@@ -181,7 +176,7 @@
       </div>
       <div>
         <label for="apiBase">API base URL</label>
-        <input id="apiBase" placeholder="https://integration-messenger.example.com">
+        <input id="apiBase" placeholder="https://your-domain">
       </div>
       <div>
         <label for="webhookTokenValue">BITRIX_WEBHOOK_TOKEN</label>
@@ -239,27 +234,22 @@
     <h2>Шаг 2. Что Заполнить В Bitrix</h2>
     <ol class="steps">
       <li>Создай локальное приложение в Bitrix.</li>
-      <li>Вставь `Путь вашего обработчика` и `Путь для первоначальной установки` из этого мастера.</li>
+      <li>Вставь `Путь вашего обработчика` и `Путь для первоначальной установки` из шага 1.</li>
       <li>Дай приложению право `imconnector`.</li>
-      <li>В Open Lines укажи `Webhook Open Lines` из этого мастера.</li>
+      <li>В Open Lines укажи `Webhook Open Lines` из шага 1.</li>
       <li>Установи приложение. Bitrix вернет тебя на эту страницу с `AUTH_ID/REFRESH_ID/APP_SID`.</li>
     </ol>
   </section>
 
   <section class="panel">
-    <h2>Шаг 3. Подключить Портал (Одна Кнопка)</h2>
+    <h2>Шаг 3. Подключить Портал (Сайт)</h2>
+    <p class="hint">
+      Откуда брать значения: после установки локального приложения Bitrix открывает эту страницу с параметрами `AUTH_ID`, `REFRESH_ID`, `APP_SID`, `DOMAIN`, `MEMBER_ID`, `AUTH_EXPIRES`. Поля ниже заполняются автоматически, если эти параметры есть в URL.
+    </p>
     <div class="grid-3">
       <div>
-        <label for="managerId">Менеджер</label>
-        <select id="managerId"></select>
-      </div>
-      <div>
-        <label for="lineId">ID открытой линии (line_id)</label>
-        <input id="lineId" placeholder="Например: 1">
-      </div>
-      <div>
-        <label for="portalDomain">Портал Bitrix (domain)</label>
-        <input id="portalDomain" placeholder="mycompany.bitrix24.ru">
+        <label for="installPortalDomain">Портал Bitrix (domain)</label>
+        <input id="installPortalDomain" placeholder="mycompany.bitrix24.ru">
       </div>
       <div>
         <label for="accessToken">Access token</label>
@@ -273,40 +263,92 @@
         <label for="applicationToken">Application token</label>
         <input id="applicationToken" placeholder="APP_SID / application_token">
       </div>
-    </div>
-
-    <details>
-      <summary>Дополнительные поля (обычно не менять)</summary>
-      <div class="grid-3" style="margin-top:10px;">
-        <div>
-          <label for="clientEndpoint">client_endpoint</label>
-          <input id="clientEndpoint" placeholder="https://mycompany.bitrix24.ru/rest">
-        </div>
-        <div>
-          <label for="memberId">member_id</label>
-          <input id="memberId" placeholder="member_id">
-        </div>
-        <div>
-          <label for="operatorUserId">operator_user_id</label>
-          <input id="operatorUserId" placeholder="Bitrix user id">
-        </div>
-        <div>
-          <label for="expiresIn">expires_in</label>
-          <input id="expiresIn" value="3600">
-        </div>
-        <div>
-          <label for="scope">scope</label>
-          <input id="scope" value="imconnector">
-        </div>
+      <div>
+        <label for="clientEndpoint">client_endpoint</label>
+        <input id="clientEndpoint" placeholder="https://mycompany.bitrix24.ru/rest">
       </div>
-      <label class="checkbox">
-        <input id="isEnabled" type="checkbox" checked>
-        Активировать подключение сразу
-      </label>
-    </details>
-
+      <div>
+        <label for="memberId">member_id</label>
+        <input id="memberId" placeholder="member_id">
+      </div>
+      <div>
+        <label for="expiresIn">expires_in</label>
+        <input id="expiresIn" value="3600">
+      </div>
+      <div>
+        <label for="scope">scope</label>
+        <input id="scope" value="imconnector">
+      </div>
+    </div>
     <div class="toolbar">
-      <button class="primary" id="connectBtn">Подключить</button>
+      <button class="primary" id="savePortalBtn">Подключить Портал</button>
+    </div>
+    <details>
+      <summary>Подробно: что и откуда брать для каждого поля</summary>
+      <div class="grid-2" style="margin-top:10px;">
+        <div class="code">Портал Bitrix (domain)
+Что ставить: домен портала без https://
+Откуда взять: параметр DOMAIN из URL после установки приложения
+Пример: mycompany.bitrix24.ru</div>
+        <div class="code">Access token
+Что ставить: AUTH_ID
+Откуда взять: параметр AUTH_ID (или access_token) из URL Bitrix
+Назначение: текущий OAuth токен для REST вызовов</div>
+        <div class="code">Refresh token
+Что ставить: REFRESH_ID
+Откуда взять: параметр REFRESH_ID (или refresh_token) из URL Bitrix
+Назначение: обновление access token</div>
+        <div class="code">Application token
+Что ставить: APP_SID
+Откуда взять: параметр APP_SID (или application_token) из URL Bitrix</div>
+        <div class="code">client_endpoint
+Что ставить: https://&lt;domain&gt;/rest
+Откуда взять: параметр CLIENT_ENDPOINT (если его нет, оставь автозначение)</div>
+        <div class="code">member_id
+Что ставить: MEMBER_ID (необязательно)
+Откуда взять: параметр MEMBER_ID из URL Bitrix</div>
+        <div class="code">expires_in
+Что ставить: AUTH_EXPIRES или 3600
+Откуда взять: параметр AUTH_EXPIRES из URL Bitrix</div>
+        <div class="code">scope
+Что ставить: imconnector
+Откуда взять: оставь значение по умолчанию, если не требуется другое</div>
+      </div>
+      <div class="code" style="margin-top:10px;">Пример URL от Bitrix (сокращенно):
+https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&REFRESH_ID=...&APP_SID=...&MEMBER_ID=...&AUTH_EXPIRES=...</div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>Шаг 4. Привязать Менеджера К Линии</h2>
+    <p class="hint">
+      Этот шаг выполняется отдельно и может повторяться для разных менеджеров и линий.
+    </p>
+    <div class="grid-3">
+      <div>
+        <label for="bindingPortalDomain">portal_domain</label>
+        <input id="bindingPortalDomain" list="portalDomainsList" placeholder="Выбери из подключенных порталов">
+        <datalist id="portalDomainsList"></datalist>
+      </div>
+      <div>
+        <label for="managerId">Менеджер</label>
+        <select id="managerId"></select>
+      </div>
+      <div>
+        <label for="lineId">ID открытой линии (line_id)</label>
+        <input id="lineId" placeholder="Например: 1">
+      </div>
+      <div>
+        <label for="operatorUserId">operator_user_id</label>
+        <input id="operatorUserId" placeholder="Bitrix user id">
+      </div>
+    </div>
+    <label class="checkbox">
+      <input id="isEnabled" type="checkbox" checked>
+      Активировать привязку сразу
+    </label>
+    <div class="toolbar">
+      <button class="primary" id="saveBindingBtn">Добавить Привязку Менеджера</button>
       <button id="healthBtn">Проверить Health</button>
       <button id="reloadBtn">Обновить списки</button>
     </div>
@@ -347,6 +389,8 @@
   const statusBox = document.getElementById("status");
   const portalsBox = document.getElementById("portalsBox");
   const bindingsBox = document.getElementById("bindingsBox");
+  const bindingPortalDomainInput = document.getElementById("bindingPortalDomain");
+  const portalDomainsList = document.getElementById("portalDomainsList");
 
   function setStatus(message, isError = false) {
     statusBox.textContent = message;
@@ -370,18 +414,16 @@
     return domain !== "" ? ("https://" + domain) : "";
   }
 
-  function randomHex(bytes = 32) {
-    const data = new Uint8Array(bytes);
-    crypto.getRandomValues(data);
-    return Array.from(data, (item) => item.toString(16).padStart(2, "0")).join("");
-  }
-
   function refreshDerivedFields() {
     const domain = normalizeDomain(siteDomainInput.value);
     const base = makeBaseUrl();
     const webhookToken = webhookTokenValueInput.value.trim();
     const managementToken = managementTokenValueInput.value.trim();
     const acmeEmail = acmeEmailInput.value.trim() || "admin@example.com";
+
+    if (apiBaseInput.value.trim() === "") {
+      apiBaseInput.value = window.location.origin;
+    }
     if (tokenInput.value.trim() === "") {
       tokenInput.value = managementToken;
     }
@@ -412,26 +454,6 @@
       (webhookUrlInput.value || "<https://your-domain/api/webhooks/bitrix/open-lines?token=...>");
   }
 
-  function generateMissingTokens() {
-    let generated = 0;
-    if (webhookTokenValueInput.value.trim() === "") {
-      webhookTokenValueInput.value = randomHex(32);
-      generated++;
-    }
-    if (managementTokenValueInput.value.trim() === "") {
-      managementTokenValueInput.value = randomHex(32);
-      generated++;
-    }
-
-    refreshDerivedFields();
-    if (generated === 0) {
-      setStatus("Токены уже заполнены, генерация не нужна.");
-      return;
-    }
-    tokenInput.value = managementTokenValueInput.value.trim();
-    setStatus("Сгенерированы отсутствующие токены: " + generated);
-  }
-
   function authHeaders() {
     const token = tokenInput.value.trim();
     const headers = {"Content-Type": "application/json"};
@@ -447,10 +469,21 @@
       throw new Error("Укажи API base URL.");
     }
 
-    const response = await fetch(base + path, {
-      headers: authHeaders(),
-      ...options
-    });
+    let response;
+    try {
+      response = await fetch(base + path, {
+        headers: authHeaders(),
+        ...options
+      });
+    } catch (_error) {
+      throw new Error(
+        "Ошибка сети при обращении к " +
+        base +
+        path +
+        ". Проверь API base URL, HTTPS и доступность домена."
+      );
+    }
+
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(payload.message || ("HTTP " + response.status));
@@ -458,14 +491,40 @@
     return payload;
   }
 
-  async function requestWithoutAuth(path) {
+  async function requestWithoutAuth(path, options = {}) {
     const base = window.location.origin.replace(/\/+$/, "");
-    const response = await fetch(base + path, {method: "GET"});
+    let response;
+    try {
+      response = await fetch(base + path, options);
+    } catch (_error) {
+      throw new Error(
+        "Ошибка сети при обращении к " +
+        base +
+        path +
+        ". Проверь HTTPS и доступность домена."
+      );
+    }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(payload.message || ("HTTP " + response.status));
     }
     return payload;
+  }
+
+  async function generateMissingTokens() {
+    const payload = await request("/api/bitrix/setup/tokens/generate-missing", {method: "POST"});
+
+    webhookTokenValueInput.value = payload.bitrix_webhook_token || "";
+    managementTokenValueInput.value = payload.bitrix_management_token || "";
+    tokenInput.value = payload.bitrix_management_token || "";
+    refreshDerivedFields();
+
+    if ((payload.generated_count || 0) === 0) {
+      setStatus("Токены уже были в .env. Генерация не нужна.");
+      return;
+    }
+
+    setStatus("Токены сохранены в .env. Рекомендуется перезапустить контейнер app.");
   }
 
   function createOption(value, text) {
@@ -473,6 +532,29 @@
     option.value = value;
     option.textContent = text;
     return option;
+  }
+
+  function syncPortalDomainList(items) {
+    portalDomainsList.innerHTML = "";
+    if (!Array.isArray(items)) {
+      return;
+    }
+
+    items.forEach((item) => {
+      const domain = (item.portal_domain || "").trim();
+      if (domain !== "") {
+        const option = document.createElement("option");
+        option.value = domain;
+        portalDomainsList.appendChild(option);
+      }
+    });
+
+    if (bindingPortalDomainInput.value.trim() === "" && items.length > 0) {
+      const firstDomain = (items[0].portal_domain || "").trim();
+      if (firstDomain !== "") {
+        bindingPortalDomainInput.value = firstDomain;
+      }
+    }
   }
 
   async function loadManagerAccounts() {
@@ -498,6 +580,7 @@
   async function loadPortals() {
     const payload = await request("/api/bitrix/portals", {method: "GET"});
     portalsBox.textContent = formatJson(payload);
+    syncPortalDomainList(payload.items || []);
     return payload.count || 0;
   }
 
@@ -547,7 +630,10 @@
     const expires = firstNonEmpty([params.get("expires_in"), params.get("AUTH_EXPIRES"), params.get("expires")]);
 
     if (domain) {
-      document.getElementById("portalDomain").value = domain;
+      document.getElementById("installPortalDomain").value = domain;
+      if (bindingPortalDomainInput.value.trim() === "") {
+        bindingPortalDomainInput.value = domain;
+      }
     }
     if (accessToken) {
       document.getElementById("accessToken").value = accessToken;
@@ -572,7 +658,7 @@
   }
 
   function installAuthPayload() {
-    const domain = document.getElementById("portalDomain").value.trim().toLowerCase();
+    const domain = document.getElementById("installPortalDomain").value.trim().toLowerCase();
     const endpointRaw = document.getElementById("clientEndpoint").value.trim();
     const endpoint = endpointRaw || ("https://" + domain + "/rest");
     const expires = parseInt(document.getElementById("expiresIn").value.trim() || "3600", 10);
@@ -589,13 +675,29 @@
     };
   }
 
-  async function connect() {
-    const payload = await request("/api/bitrix/connect-profile", {
+  async function savePortalInstall() {
+    const payload = await request("/api/bitrix/app/install", {
+      method: "POST",
+      body: JSON.stringify({auth: installAuthPayload()})
+    });
+
+    const domain = (payload.portal_domain || "").trim();
+    if (domain !== "") {
+      bindingPortalDomainInput.value = domain;
+      document.getElementById("installPortalDomain").value = domain;
+    }
+
+    setStatus("Портал подключен: " + payload.portal_domain);
+    await reloadData();
+  }
+
+  async function saveBinding() {
+    const payload = await request("/api/bitrix/bindings", {
       method: "POST",
       body: JSON.stringify({
-        auth: installAuthPayload(),
         channel_provider: "telegram",
         manager_account_external_id: managerSelect.value.trim(),
+        portal_domain: bindingPortalDomainInput.value.trim().toLowerCase(),
         line_id: document.getElementById("lineId").value.trim(),
         operator_user_id: document.getElementById("operatorUserId").value.trim() || undefined,
         is_enabled: document.getElementById("isEnabled").checked
@@ -603,12 +705,12 @@
     });
 
     setStatus(
-      "Подключено: " +
-      payload.binding.manager_account_external_id +
+      "Привязка добавлена: " +
+      payload.manager_account_external_id +
       " -> " +
-      payload.portal.portal_domain +
+      payload.portal_domain +
       " (line_id=" +
-      payload.binding.line_id +
+      payload.line_id +
       ")"
     );
 
@@ -628,9 +730,9 @@
   async function loadSetupProfile() {
     const payload = await requestWithoutAuth("/api/bitrix/setup/profile");
     const domain = payload.site_domain || window.location.hostname || "";
-    siteDomainInput.value = domain;
-    acmeEmailInput.value = "admin@" + (domain || "example.com");
 
+    siteDomainInput.value = domain;
+    acmeEmailInput.value = payload.acme_email || ("admin@" + (domain || "example.com"));
     webhookTokenValueInput.value = payload.bitrix_webhook_token || "";
     managementTokenValueInput.value = payload.bitrix_management_token || "";
     tokenInput.value = payload.bitrix_management_token || "";
@@ -639,11 +741,12 @@
   }
 
   function fallbackSetupProfile() {
-    siteDomainInput.value = window.location.hostname || "";
+    const domain = window.location.hostname || "";
+    siteDomainInput.value = domain;
     if (acmeEmailInput.value.trim() === "") {
-      const domain = siteDomainInput.value.trim();
-      acmeEmailInput.value = "admin@" + (domain !== "" ? domain : "example.com");
+      acmeEmailInput.value = "admin@" + (domain || "example.com");
     }
+    apiBaseInput.value = window.location.origin;
     refreshDerivedFields();
   }
 
@@ -659,9 +762,7 @@
     input.addEventListener("input", refreshDerivedFields);
   });
 
-  document.getElementById("generateMissingTokensBtn").onclick = () => withError(async () => {
-    generateMissingTokens();
-  });
+  document.getElementById("generateMissingTokensBtn").onclick = () => withError(generateMissingTokens);
   document.getElementById("copyEnvBtn").onclick = () => withError(async () => {
     await copyText(envBlock.textContent, ".env блок скопирован.");
   });
@@ -671,18 +772,17 @@
   document.getElementById("copyWebhookBtn").onclick = () => withError(async () => {
     await copyText(webhookUrlInput.value, "Webhook URL скопирован.");
   });
-  document.getElementById("connectBtn").onclick = () => withError(connect);
+  document.getElementById("savePortalBtn").onclick = () => withError(savePortalInstall);
+  document.getElementById("saveBindingBtn").onclick = () => withError(saveBinding);
   document.getElementById("healthBtn").onclick = () => withError(checkHealth);
   document.getElementById("reloadBtn").onclick = () => withError(reloadData);
 
-  apiBaseInput.value = window.location.origin;
   applyBitrixAuthFromUrl();
   withError(async () => {
     try {
       await loadSetupProfile();
     } catch (_error) {
       fallbackSetupProfile();
-      setStatus("Профиль сервера не загружен автоматически. Использую данные страницы.", true);
     }
     await loadManagerAccounts();
     await reloadData();

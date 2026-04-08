@@ -56,3 +56,9 @@
 | 2026-04-08 | Added setup profile endpoint for panel autofill | Added `GET /api/bitrix/setup/profile` returning current env-backed Bitrix/domain settings and derived URLs |
 | 2026-04-08 | Refined panel behavior for missing-token generation | Panel now auto-fills existing tokens and only generates `BITRIX_WEBHOOK_TOKEN`/`BITRIX_MANAGEMENT_TOKEN` when fields are empty |
 | 2026-04-08 | Added SITE_DOMAIN into app runtime config | App now receives `SITE_DOMAIN` via compose/env and uses it in setup profile output |
+| 2026-04-08 | Implemented .env write support for setup flow | Added `EnvFileStore` to parse/update `.env` keys safely with in-place upsert semantics |
+| 2026-04-08 | Added backend token generation endpoint | Added `POST /api/bitrix/setup/tokens/generate-missing` to generate only missing Bitrix tokens and persist them to `.env` |
+| 2026-04-08 | Switched panel generation button to server persistence | UI now calls backend endpoint; generated tokens are immediately saved in `.env` and reflected in the form |
+| 2026-04-08 | Reworked panel flow to separate portal and bindings | Replaced one-click connect with separate `app/install` action and dedicated multi-binding action for managers/lines |
+| 2026-04-08 | Updated setup docs for separate connection stages | `docs/BITRIX_SETUP_RU.md` now describes portal connection and repeated manager-line bindings as different steps |
+| 2026-04-08 | Hardened panel network behavior for fetch failures | API base now defaults to current page origin and fetch errors now show actionable network diagnostics instead of generic "Failed to fetch" |

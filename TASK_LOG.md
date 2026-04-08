@@ -33,3 +33,5 @@
 | 2026-04-08 | Prevent direct public access to internal HTTP services | Done | Bound `app` and `telegram-gateway` host ports to `127.0.0.1`, keeping external access only through HTTPS reverse proxy |
 | 2026-04-08 | Build Bitrix connection wizard page with data generator | Done | Added one-page setup wizard generating tokens, `.env`, Bitrix app paths, webhook URL, and copy actions |
 | 2026-04-08 | Refactor Bitrix page to instruction-first autofill flow | Done | Added server-backed setup profile autofill and changed token generation to "only if missing" |
+| 2026-04-08 | Persist generated Bitrix tokens directly into .env | Done | Added backend env file store and setup endpoint to generate missing tokens and save them into .env |
+| 2026-04-08 | Split Bitrix connection flow into portal + manager bindings | Done | Panel now uses separate actions: install portal first, then add multiple manager-to-line bindings |

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ChatSync\App\Http\Controller;
 
 use ChatSync\Shared\Infrastructure\Config\AppConfig;
+use ChatSync\Shared\Infrastructure\Config\EnvFileStore;
 
 final readonly class BitrixSetupProfileController
 {
@@ -17,14 +18,18 @@ final readonly class BitrixSetupProfileController
      */
     public function handle(): array
     {
-        $domain = $this->config->siteDomain;
+        $env = (new EnvFileStore($this->envPath()))->read();
+
+        $domain = $this->value($env, 'SITE_DOMAIN', $this->config->siteDomain);
         $baseUrl = $domain !== '' ? ('https://' . $domain) : '';
-        $webhookToken = $this->config->bitrixWebhookToken;
-        $managementToken = $this->config->bitrixManagementToken;
+        $webhookToken = $this->value($env, 'BITRIX_WEBHOOK_TOKEN', $this->config->bitrixWebhookToken);
+        $managementToken = $this->value($env, 'BITRIX_MANAGEMENT_TOKEN', $this->config->bitrixManagementToken);
+        $acmeEmail = $this->value($env, 'ACME_EMAIL', '');
 
         return [
             'status' => 'ok',
             'site_domain' => $domain,
+            'acme_email' => $acmeEmail,
             'public_base_url' => $baseUrl,
             'bitrix_connector_mode' => $this->config->bitrixConnectorMode,
             'bitrix_default_channel_provider' => $this->config->bitrixDefaultChannelProvider,
@@ -40,5 +45,20 @@ final readonly class BitrixSetupProfileController
             'bitrix_panel_url' => $baseUrl !== '' ? ($baseUrl . '/panel/bitrix') : '',
             'telegram_ui_url' => $baseUrl !== '' ? ($baseUrl . '/telegram/') : '',
         ];
+    }
+
+    /**
+     * @param array<string, string> $env
+     */
+    private function value(array $env, string $key, string $fallback): string
+    {
+        $value = $env[$key] ?? '';
+
+        return $value !== '' ? $value : $fallback;
+    }
+
+    private function envPath(): string
+    {
+        return dirname(__DIR__, 4) . '/.env';
     }
 }
