@@ -545,7 +545,7 @@ function isBitrixAppContextRequest(): bool
         ?? scalarParam($_POST['DOMAIN'] ?? null)
         ?? scalarParam($_POST['domain'] ?? null);
 
-    if ($domain === '') {
+    if (!is_string($domain) || $domain === '') {
         return false;
     }
 
