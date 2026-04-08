@@ -102,6 +102,17 @@ try {
         $json->respond($container->bitrixIntegrationCheckController()->handle($json->decodeRequestBody()));
     }
 
+    if ($method === 'GET' && $path === '/api/bitrix/logs') {
+        assertSharedToken(
+            $container->config()->bitrixManagementToken,
+            providedIntegrationToken(),
+            'Invalid integration management token.',
+        );
+        $limit = $_GET['limit'] ?? 200;
+        $resolvedLimit = is_numeric($limit) ? (int) $limit : 200;
+        $json->respond($container->bitrixLogsController()->handle($resolvedLimit));
+    }
+
     if ($method === 'GET' && $path === '/api/bitrix/portals') {
         assertSharedToken(
             $container->config()->bitrixManagementToken,

@@ -11,6 +11,7 @@ use ChatSync\App\Http\Controller\HealthController;
 use ChatSync\App\Http\Controller\BitrixAppInstallController;
 use ChatSync\App\Http\Controller\BitrixConnectProfileController;
 use ChatSync\App\Http\Controller\BitrixIntegrationCheckController;
+use ChatSync\App\Http\Controller\BitrixLogsController;
 use ChatSync\App\Http\Controller\BitrixPortalsController;
 use ChatSync\App\Http\Controller\BitrixOpenLinesWebhookController;
 use ChatSync\App\Http\Controller\BitrixSetupGenerateTokensController;
@@ -53,6 +54,7 @@ use ChatSync\App\Query\BitrixIntegrationQuery;
 use ChatSync\App\Query\ManagerAccountsQuery;
 use ChatSync\App\Query\RuntimeStateInspector;
 use ChatSync\App\Query\MessageMappingLookup;
+use ChatSync\App\Query\IntegrationLogsQuery;
 use ChatSync\Core\Application\Handler\SyncInboundChannelMessageHandler;
 use ChatSync\Core\Application\Handler\SyncOutboundCrmMessageHandler;
 use ChatSync\Core\Application\Port\Connector\ChannelConnector;
@@ -84,6 +86,7 @@ final class ApplicationContainer
     private ?BitrixAppInstallController $bitrixAppInstallController = null;
     private ?BitrixConnectProfileController $bitrixConnectProfileController = null;
     private ?BitrixIntegrationCheckController $bitrixIntegrationCheckController = null;
+    private ?BitrixLogsController $bitrixLogsController = null;
     private ?BitrixPortalsController $bitrixPortalsController = null;
     private ?ManagerAccountsController $managerAccountsController = null;
     private ?ManagerBitrixBindingController $managerBitrixBindingController = null;
@@ -252,6 +255,17 @@ final class ApplicationContainer
             $this->bitrixTokenManager(),
             $this->bitrixOpenLinesLifecycle(),
             $this->bitrixRestClient(),
+            $this->config->telegramGatewayBaseUrl,
+            $this->config->telegramGatewayToken,
+        );
+    }
+
+    public function bitrixLogsController(): BitrixLogsController
+    {
+        return $this->bitrixLogsController ??= new BitrixLogsController(
+            new IntegrationLogsQuery($this->pdo()),
+            $this->config->telegramGatewayBaseUrl,
+            $this->config->telegramGatewayToken,
         );
     }
 

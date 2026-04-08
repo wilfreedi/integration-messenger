@@ -42,6 +42,7 @@ use ChatSync\Core\Domain\ValueObject\DeliveryId;
 use ChatSync\Core\Domain\ValueObject\MessageId;
 use ChatSync\Shared\Domain\Clock;
 use ChatSync\Shared\Domain\IdGenerator;
+use Throwable;
 
 final class SyncInboundChannelMessageHandler
 {
@@ -66,8 +67,30 @@ final class SyncInboundChannelMessageHandler
     public function __invoke(SyncInboundChannelMessageCommand $command): SyncResult
     {
         $eventSource = $this->eventSource($command->channelProvider->value);
+        $this->logger->log(new ExternalOperationLogEntry(
+            $command->channelProvider->value,
+            IntegrationDirection::INBOUND,
+            $command->eventId,
+            $command->externalMessageId,
+            'webhook_received',
+            [
+                'manager_account_external_id' => $command->managerAccountExternalId,
+                'contact_external_chat_id' => $command->contactExternalChatId,
+                'crm_provider' => $command->crmProvider->value,
+            ],
+        ));
 
         if ($this->processedEvents->has($eventSource, $command->eventId)) {
+            $this->logger->log(new ExternalOperationLogEntry(
+                $command->channelProvider->value,
+                IntegrationDirection::INBOUND,
+                $command->eventId,
+                $command->externalMessageId,
+                'webhook_duplicate',
+                [
+                    'manager_account_external_id' => $command->managerAccountExternalId,
+                ],
+            ));
             return SyncResult::duplicate('duplicate_event');
         }
 
@@ -77,6 +100,16 @@ final class SyncInboundChannelMessageHandler
         );
 
         if ($managerAccount === null) {
+            $this->logger->log(new ExternalOperationLogEntry(
+                $command->channelProvider->value,
+                IntegrationDirection::INBOUND,
+                $command->eventId,
+                $command->externalMessageId,
+                'manager_account_not_found',
+                [
+                    'manager_account_external_id' => $command->managerAccountExternalId,
+                ],
+            ));
             throw new ManagerAccountNotFound(sprintf(
                 'Manager account not found for provider "%s" and external id "%s".',
                 $command->channelProvider->value,
@@ -110,17 +143,45 @@ final class SyncInboundChannelMessageHandler
         $crmThread = $this->ensureCrmThread($conversation, $managerAccount->externalAccountId(), $contact->displayName(), $command, $correlationId);
 
         $crmConnector = $this->crmConnectors->for($command->crmProvider);
-        $crmResult = $crmConnector->sendMessage(new SendCrmMessageRequest(
-            $crmThread->externalThreadId(),
-            $command->channelProvider,
-            $managerAccount->externalAccountId(),
-            $contact->displayName(),
-            $command->contactExternalUserId,
-            $command->body,
-            $command->occurredAt,
+        $this->logger->log(new ExternalOperationLogEntry(
+            $command->crmProvider->value,
+            IntegrationDirection::OUTBOUND,
             $correlationId,
-            $command->attachments,
+            $crmThread->externalThreadId(),
+            'send_message_attempt',
+            [
+                'manager_account_external_id' => $managerAccount->externalAccountId(),
+                'contact_external_chat_id' => $command->contactExternalChatId,
+            ],
         ));
+
+        try {
+            $crmResult = $crmConnector->sendMessage(new SendCrmMessageRequest(
+                $crmThread->externalThreadId(),
+                $command->channelProvider,
+                $managerAccount->externalAccountId(),
+                $contact->displayName(),
+                $command->contactExternalUserId,
+                $command->body,
+                $command->occurredAt,
+                $correlationId,
+                $command->attachments,
+            ));
+        } catch (Throwable $exception) {
+            $this->logger->log(new ExternalOperationLogEntry(
+                $command->crmProvider->value,
+                IntegrationDirection::OUTBOUND,
+                $correlationId,
+                $crmThread->externalThreadId(),
+                'send_message_failed',
+                [
+                    'manager_account_external_id' => $managerAccount->externalAccountId(),
+                    'contact_external_chat_id' => $command->contactExternalChatId,
+                    'error' => $exception->getMessage(),
+                ],
+            ));
+            throw $exception;
+        }
 
         $this->deliveries->save(new Delivery(
             DeliveryId::generate($this->idGenerator),

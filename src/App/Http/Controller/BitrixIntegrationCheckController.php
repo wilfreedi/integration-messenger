@@ -22,6 +22,8 @@ final readonly class BitrixIntegrationCheckController
         private BitrixTokenManager $tokenManager,
         private BitrixOpenLinesConnectorLifecycle $connectorLifecycle,
         private BitrixRestClient $restClient,
+        private string $telegramGatewayBaseUrl = '',
+        private string $telegramGatewayToken = '',
     ) {
     }
 
@@ -84,6 +86,7 @@ final readonly class BitrixIntegrationCheckController
             'binding' => $bindingProbe,
             'connector' => $connectorProbe,
             'line' => $lineProbe,
+            'telegram_gateway' => $this->probeTelegramGateway($managerAccountExternalId),
         ];
     }
 
@@ -463,6 +466,141 @@ final readonly class BitrixIntegrationCheckController
         }
 
         return $preview;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function probeTelegramGateway(?string $managerAccountExternalId): array
+    {
+        $baseUrl = rtrim($this->telegramGatewayBaseUrl, '/');
+        if ($baseUrl === '') {
+            return [
+                'status' => 'skipped',
+                'ok' => true,
+                'message' => 'TELEGRAM_GATEWAY_BASE_URL не задан.',
+            ];
+        }
+
+        $endpoint = $baseUrl . '/v1/accounts';
+        $headers = ["Accept: application/json"];
+        if ($this->telegramGatewayToken !== '') {
+            $headers[] = 'X-Integration-Token: ' . $this->telegramGatewayToken;
+        }
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => implode("\r\n", $headers),
+                'ignore_errors' => true,
+                'timeout' => 8,
+            ],
+        ]);
+
+        $raw = @file_get_contents($endpoint, false, $context);
+        if ($raw === false) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'Не удалось получить данные из telegram-gateway.',
+                'endpoint' => $endpoint,
+            ];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'telegram-gateway вернул некорректный JSON.',
+                'endpoint' => $endpoint,
+            ];
+        }
+
+        $accounts = $decoded['accounts'] ?? null;
+        if (!is_array($accounts)) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'В ответе telegram-gateway нет поля accounts.',
+                'endpoint' => $endpoint,
+                'response_preview' => $this->shortPreview($decoded),
+            ];
+        }
+
+        $result = [
+            'status' => 'ok',
+            'ok' => true,
+            'endpoint' => $endpoint,
+            'accounts_total' => count($accounts),
+        ];
+
+        if ($managerAccountExternalId === null || $managerAccountExternalId === '') {
+            return $result;
+        }
+
+        foreach ($accounts as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $manager = $item['manager_account_external_id'] ?? null;
+            if (!is_string($manager) || $manager !== $managerAccountExternalId) {
+                continue;
+            }
+
+            $authorizationState = is_string($item['authorization_state'] ?? null)
+                ? $item['authorization_state']
+                : 'unknown';
+            $dispatchStatus = is_string($item['last_dispatch_status'] ?? null)
+                ? $item['last_dispatch_status']
+                : 'unknown';
+            $lastError = is_string($item['last_error'] ?? null) && trim($item['last_error']) !== ''
+                ? trim($item['last_error'])
+                : null;
+
+            return [
+                'status' => 'ok',
+                'ok' => $authorizationState === 'authorizationStateReady' && $dispatchStatus !== 'failed',
+                'endpoint' => $endpoint,
+                'accounts_total' => count($accounts),
+                'manager_account_external_id' => $managerAccountExternalId,
+                'authorization_state' => $authorizationState,
+                'last_dispatch_status' => $dispatchStatus,
+                'last_error' => $lastError,
+                'message' => $authorizationState === 'authorizationStateReady'
+                    ? 'Telegram аккаунт найден и авторизован.'
+                    : 'Telegram аккаунт найден, но не авторизован.',
+            ];
+        }
+
+        return [
+            'status' => 'failed',
+            'ok' => false,
+            'endpoint' => $endpoint,
+            'accounts_total' => count($accounts),
+            'manager_account_external_id' => $managerAccountExternalId,
+            'message' => 'В telegram-gateway нет аккаунта с этим manager_account_external_id.',
+            'known_managers' => $this->knownManagers($accounts),
+        ];
+    }
+
+    /**
+     * @param array<int, mixed> $accounts
+     * @return list<string>
+     */
+    private function knownManagers(array $accounts): array
+    {
+        $result = [];
+        foreach ($accounts as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $manager = $item['manager_account_external_id'] ?? null;
+            if (is_string($manager) && $manager !== '') {
+                $result[] = $manager;
+            }
+        }
+
+        return array_values(array_unique($result));
     }
 
     private function toBool(mixed $value): bool

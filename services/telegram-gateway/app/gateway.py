@@ -545,6 +545,8 @@ class AccountSession:
                 self._pending.pop(extra, None)
 
     def _append_recent_event(self, event: dict[str, Any]) -> None:
+        if "timestamp" not in event:
+            event["timestamp"] = datetime.now(timezone.utc).isoformat()
         with self._recent_events_lock:
             self._recent_events.append(event)
             if len(self._recent_events) > 100:

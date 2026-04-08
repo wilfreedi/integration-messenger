@@ -109,7 +109,15 @@ final class SyncInboundChannelMessageHandlerTest
         Assertions::assertCount(1, $attachments->all(), 'One attachment is expected.');
         Assertions::assertCount(1, $crmThreads->all(), 'One CRM thread is expected.');
         Assertions::assertCount(1, $deliveries->all(), 'One delivery is expected.');
-        Assertions::assertCount(2, $logger->entries(), 'Thread creation and message send must be logged.');
+        Assertions::assertCount(4, $logger->entries(), 'Inbound receive, send attempt, thread create and send success must be logged.');
+        $operations = array_map(
+            static fn (object $entry): string => $entry->operation,
+            $logger->entries(),
+        );
+        Assertions::assertTrue(in_array('webhook_received', $operations, true), 'Inbound receive log is required.');
+        Assertions::assertTrue(in_array('send_message_attempt', $operations, true), 'Bitrix send attempt log is required.');
+        Assertions::assertTrue(in_array('ensure_thread', $operations, true), 'Thread creation log is required.');
+        Assertions::assertTrue(in_array('send_message', $operations, true), 'Bitrix send success log is required.');
     }
 
     private static function itSkipsDuplicateInboundExternalMessages(): void
@@ -192,4 +200,3 @@ final class SyncInboundChannelMessageHandlerTest
         Assertions::assertCount(1, $deliveries->all(), 'Only one delivery must be stored.');
     }
 }
-

@@ -387,6 +387,19 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     <div id="diagnosticsBox" class="json">{}</div>
   </section>
 
+  <section class="panel">
+    <h2>Логи Интеграции</h2>
+    <div class="toolbar">
+      <button id="reloadLogsBtn">Обновить Логи</button>
+      <label class="checkbox" style="margin:0;">
+        <input id="autoLogs" type="checkbox" checked>
+        Автообновление (10с)
+      </label>
+    </div>
+    <div id="logsSummaryBox" class="status" style="margin-top:10px;">Загрузка...</div>
+    <div id="logsBox" class="json" style="margin-top:10px;">{}</div>
+  </section>
+
   <section class="grid-2">
     <div class="panel">
       <h2>Подключенные порталы</h2>
@@ -416,6 +429,9 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   const managerSelect = document.getElementById("managerId");
   const statusBox = document.getElementById("status");
   const diagnosticsBox = document.getElementById("diagnosticsBox");
+  const logsSummaryBox = document.getElementById("logsSummaryBox");
+  const logsBox = document.getElementById("logsBox");
+  const autoLogsInput = document.getElementById("autoLogs");
   const portalsBox = document.getElementById("portalsBox");
   const bindingsBox = document.getElementById("bindingsBox");
   const bindingPortalDomainInput = document.getElementById("bindingPortalDomain");
@@ -623,6 +639,31 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     const portals = await loadPortals();
     const bindings = await loadBindings();
     setStatus("Данные обновлены. Порталов: " + portals + ", подключений: " + bindings);
+  }
+
+  function logsSummaryText(summary, gatewayStatus) {
+    if (!summary || typeof summary !== "object") {
+      return "Нет данных summary.";
+    }
+    const gatewayMessage = gatewayStatus && gatewayStatus.message ? gatewayStatus.message : "n/a";
+    return (
+      "TG webhook получено: " + (summary.telegram_webhook_received_total || 0) +
+      " | Bitrix send OK: " + (summary.bitrix_send_success_total || 0) +
+      " | Bitrix send FAIL: " + (summary.bitrix_send_failed_total || 0) +
+      " | TG gateway inbound: " + (summary.telegram_gateway_inbound_total || 0) +
+      " | TG gateway outbound: " + (summary.telegram_gateway_outbound_total || 0) +
+      "\nПоследняя ошибка Bitrix: " + (summary.last_bitrix_error || "нет") +
+      "\nTelegram gateway: " + gatewayMessage
+    );
+  }
+
+  async function loadLogs(silent = true) {
+    const payload = await request("/api/bitrix/logs?limit=200", {method: "GET"});
+    logsSummaryBox.textContent = logsSummaryText(payload.summary || {}, payload.telegram_gateway_status || {});
+    logsBox.textContent = formatJson(payload);
+    if (!silent) {
+      setStatus("Логи интеграции обновлены.");
+    }
   }
 
   function firstNonEmpty(values) {
@@ -889,6 +930,9 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   document.getElementById("checkLineBtn").onclick = () => withError(checkLineBinding);
   document.getElementById("healthBtn").onclick = () => withError(checkHealth);
   document.getElementById("reloadBtn").onclick = () => withError(reloadData);
+  document.getElementById("reloadLogsBtn").onclick = () => withError(async () => {
+    await loadLogs(false);
+  });
 
   applyBitrixAuthFromUrl();
   withError(async () => {
@@ -899,7 +943,17 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     }
     await loadManagerAccounts();
     await reloadData();
+    await loadLogs(true);
   });
+
+  setInterval(() => {
+    if (!autoLogsInput.checked) {
+      return;
+    }
+    withError(async () => {
+      await loadLogs(true);
+    });
+  }, 10000);
 </script>
 </body>
 </html>
