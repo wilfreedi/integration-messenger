@@ -208,6 +208,12 @@ final class SyncInboundChannelMessageHandler
                 'conversation_id' => $conversation->id()->toString(),
                 'message_id' => $message->id()->toString(),
                 'crm_external_message_id' => $crmResult->externalMessageId,
+                'bitrix_session_id' => is_string($crmResult->meta['bitrix_session_id'] ?? null)
+                    ? $crmResult->meta['bitrix_session_id']
+                    : null,
+                'bitrix_session_chat_id' => is_string($crmResult->meta['bitrix_session_chat_id'] ?? null)
+                    ? $crmResult->meta['bitrix_session_chat_id']
+                    : null,
             ],
         ));
 

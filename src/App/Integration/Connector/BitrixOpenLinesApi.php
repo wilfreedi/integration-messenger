@@ -25,7 +25,7 @@ final readonly class BitrixOpenLinesApi
         string $body,
         DateTimeImmutable $occurredAt,
         string $sourceMessageId,
-    ): string {
+    ): BitrixOpenLinesSendMessageResult {
         $this->assertConfigured();
 
         $payloadMessage = [
@@ -66,7 +66,14 @@ final readonly class BitrixOpenLinesApi
             );
         }
 
-        return $this->extractMessageId($response) ?? $sourceMessageId;
+        $sessionChatId = $this->extractSessionChatId($response) ?? '';
+        $externalMessageId = $this->extractMessageId($response) ?? $sourceMessageId;
+
+        return new BitrixOpenLinesSendMessageResult(
+            externalMessageId: $externalMessageId,
+            sessionId: $sessionId,
+            sessionChatId: $sessionChatId,
+        );
     }
 
     /**
@@ -211,6 +218,23 @@ final readonly class BitrixOpenLinesApi
             ['DATA', 'RESULT', 0, 'session', 'ID'],
             ['DATA', 'RESULT', 0, 'SESSION', 'ID'],
             ['data', 'result', 0, 'session', 'id'],
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function extractSessionChatId(array $response): ?string
+    {
+        $result = $response['result'] ?? null;
+        if (!is_array($result)) {
+            return null;
+        }
+
+        return $this->firstScalarFromPaths($result, [
+            ['DATA', 'RESULT', 0, 'session', 'CHAT_ID'],
+            ['DATA', 'RESULT', 0, 'SESSION', 'CHAT_ID'],
+            ['data', 'result', 0, 'session', 'chat_id'],
         ]);
     }
 

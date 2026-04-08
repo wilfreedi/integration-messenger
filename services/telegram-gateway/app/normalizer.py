@@ -18,10 +18,15 @@ class TelegramUpdateNormalizer:
 
         content = message.get("content") or {}
         body, attachments = self._extract_body_and_attachments(content)
+        is_outgoing = bool(message.get("is_outgoing", False))
 
         sender_id = message.get("sender_id") or {}
         contact_user_id = None
-        if sender_id.get("@type") == "messageSenderUser":
+        if is_outgoing:
+            user_id = (chat.get("type") or {}).get("user_id")
+            if user_id is not None:
+                contact_user_id = str(user_id)
+        elif sender_id.get("@type") == "messageSenderUser":
             contact_user_id = str(sender_id.get("user_id"))
         elif (chat.get("type") or {}).get("@type") == "chatTypePrivate":
             user_id = (chat.get("type") or {}).get("user_id")
@@ -99,4 +104,3 @@ class TelegramUpdateNormalizer:
             return caption or "[animation]", []
 
         return f"[{content_type or 'unsupported'}]", []
-

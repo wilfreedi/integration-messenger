@@ -41,7 +41,7 @@ final class BitrixOpenLinesApiTest
             restClient: $restClient,
         );
 
-        $externalMessageId = $api->sendMessage(
+        $sendResult = $api->sendMessage(
             externalThreadId: 'conversation-1',
             externalUserId: 'telegram-user-1',
             contactDisplayName: 'Alice Example',
@@ -50,7 +50,9 @@ final class BitrixOpenLinesApiTest
             sourceMessageId: 'source-1',
         );
 
-        Assertions::assertSame('bitrix-message-100', $externalMessageId);
+        Assertions::assertSame('bitrix-message-100', $sendResult->externalMessageId);
+        Assertions::assertSame('323', $sendResult->sessionId);
+        Assertions::assertSame('1767', $sendResult->sessionChatId);
         Assertions::assertSame('imconnector.send.messages', $restClient->lastMethod);
         Assertions::assertSame('conversation-1', $restClient->lastPayload['MESSAGES'][0]['chat']['id'] ?? null);
         Assertions::assertSame('telegram-user-1', $restClient->lastPayload['MESSAGES'][0]['user']['id'] ?? null);

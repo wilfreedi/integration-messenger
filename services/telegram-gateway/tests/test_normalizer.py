@@ -94,7 +94,32 @@ class TelegramUpdateNormalizerTest(unittest.TestCase):
         self.assertEqual("contract.pdf", dto.attachments[0].file_name)
         self.assertEqual("remote-file-1", dto.attachments[0].external_file_id)
 
+    def test_normalizes_outgoing_private_message_with_peer_user(self) -> None:
+        message = {
+            "id": 999,
+            "chat_id": 501,
+            "date": 1_712_472_000,
+            "is_outgoing": True,
+            "sender_id": {"@type": "messageSenderUser", "user_id": 111111},
+            "content": {
+                "@type": "messageText",
+                "text": {"@type": "formattedText", "text": "Outgoing text"},
+            },
+        }
+        chat = {
+            "id": 501,
+            "title": "Peer User",
+            "type": {"@type": "chatTypePrivate", "user_id": 222222},
+        }
+
+        dto = self.normalizer.normalize(message, chat)
+
+        self.assertIsNotNone(dto)
+        assert dto is not None
+        self.assertEqual("222222", dto.contact_external_user_id)
+        self.assertEqual("501", dto.contact_external_chat_id)
+        self.assertEqual("Outgoing text", dto.body)
+
 
 if __name__ == "__main__":
     unittest.main()
-

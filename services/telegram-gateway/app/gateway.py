@@ -457,13 +457,11 @@ class AccountSession:
                 self._append_recent_event(
                     {
                         "account_id": self._account.account_id,
-                        "direction": "skipped",
-                        "reason": "outgoing_message",
+                        "direction": "outgoing_observed",
                         "chat_id": str(message.get("chat_id", "")),
                         "external_message_id": str(message.get("id", "")),
                     }
                 )
-                return
 
             self._dispatch_queue.put(message)
 

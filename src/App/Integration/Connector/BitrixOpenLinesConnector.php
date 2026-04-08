@@ -42,7 +42,7 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
                 ? $request->externalContactUserId
                 : $request->externalThreadId);
 
-        $externalMessageId = $this->apiFor($request)->sendMessage(
+        $sendResult = $this->apiFor($request)->sendMessage(
             externalThreadId: $externalChatId,
             externalUserId: $externalUserId,
             contactDisplayName: $request->contactDisplayName,
@@ -51,7 +51,13 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
             sourceMessageId: 'channel-' . $request->correlationId,
         );
 
-        return new SendCrmMessageResult($externalMessageId);
+        return new SendCrmMessageResult(
+            $sendResult->externalMessageId,
+            [
+                'bitrix_session_id' => $sendResult->sessionId,
+                'bitrix_session_chat_id' => $sendResult->sessionChatId,
+            ],
+        );
     }
 
     private function apiFor(SendCrmMessageRequest $request): BitrixOpenLinesApi
