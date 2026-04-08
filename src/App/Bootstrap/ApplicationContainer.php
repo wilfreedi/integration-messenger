@@ -387,11 +387,16 @@ final class ApplicationContainer
 
     private function placementHandlerUrl(): string
     {
-        if ($this->config->siteDomain !== '') {
-            return 'https://' . $this->config->siteDomain . '/bitrix/app';
+        $base = $this->config->siteDomain !== ''
+            ? ('https://' . $this->config->siteDomain)
+            : 'https://example.com';
+
+        $url = $base . '/bitrix/app';
+        if ($this->config->bitrixWebhookToken !== '') {
+            $url .= '?token=' . rawurlencode($this->config->bitrixWebhookToken);
         }
 
-        return 'https://example.com/bitrix/app';
+        return $url;
     }
 
     private function openLinesWebhookUrl(): string

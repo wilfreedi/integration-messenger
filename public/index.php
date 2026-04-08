@@ -614,6 +614,10 @@ function isBitrixBootstrapRequest(string $path, string $bitrixWebhookToken): boo
         return true;
     }
 
+    if (isBitrixRefererContext()) {
+        return true;
+    }
+
     $token = scalarParam($_GET['token'] ?? null);
     if (
         ($path === '/bitrix/app' || $path === '/bitrix/app/')
@@ -621,6 +625,31 @@ function isBitrixBootstrapRequest(string $path, string $bitrixWebhookToken): boo
         && $token !== null
         && hash_equals($bitrixWebhookToken, $token)
     ) {
+        return true;
+    }
+
+    return false;
+}
+
+function isBitrixRefererContext(): bool
+{
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    if (!is_string($referer) || trim($referer) === '') {
+        return false;
+    }
+
+    $host = parse_url($referer, PHP_URL_HOST);
+    if (!is_string($host) || $host === '') {
+        return false;
+    }
+
+    $host = strtolower($host);
+    if (str_ends_with($host, '.bitrix24.ru') || str_contains($host, 'bitrix24')) {
+        return true;
+    }
+
+    $domain = scalarParam($_GET['DOMAIN'] ?? null) ?? scalarParam($_GET['domain'] ?? null);
+    if (is_string($domain) && $domain !== '' && strtolower($domain) === $host) {
         return true;
     }
 

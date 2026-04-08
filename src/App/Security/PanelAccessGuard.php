@@ -23,12 +23,13 @@ final class PanelAccessGuard
         }
 
         session_name(self::SESSION_NAME);
+        $isHttps = $this->isHttpsRequest();
         session_set_cookie_params([
             'lifetime' => $this->config->panelAuthSessionTtlSeconds,
             'path' => '/',
-            'secure' => $this->isHttpsRequest(),
+            'secure' => $isHttps,
             'httponly' => true,
-            'samesite' => 'Strict',
+            'samesite' => $isHttps ? 'None' : 'Lax',
         ]);
         session_start();
     }

@@ -144,8 +144,8 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
                 'LINE' => ctype_digit($lineId) ? (int) $lineId : $lineId,
                 'DATA' => [
                     'ID' => $dataId,
-                    'URL' => $this->webhookUrl,
-                    'URL_IM' => $this->webhookUrl,
+                    'URL' => $this->placementHandlerUrl,
+                    'URL_IM' => $this->placementHandlerUrl,
                     'NAME' => $displayName,
                 ],
             ], $authToken),
