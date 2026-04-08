@@ -29,3 +29,4 @@
 | 2026-04-07 | Simplify Bitrix panel UX for non-technical setup | Done | Removed manual connector_id fields; primary flow now requires only portal install + manager + line_id |
 | 2026-04-07 | Simplify Bitrix management API responses | Done | Removed connector_id from user-facing binding responses to keep API surface simpler |
 | 2026-04-08 | Flatten Bitrix panel to one-step connection UX | Done | Removed split install/binding blocks and replaced with one "Подключить" form for manager + line + portal auth |
+| 2026-04-08 | Add domain-based HTTPS ingress with auto certificate renewal | Done | Added Caddy service with env-driven domain, automatic Let's Encrypt issue/renew, and updated setup docs |

@@ -100,6 +100,43 @@ open http://127.0.0.1:8090/
 open http://127.0.0.1:8080/panel/bitrix
 ```
 
+## Домен и HTTPS сертификат (автовыпуск и перевыпуск)
+
+В проект добавлен `caddy` reverse proxy. Он:
+- берет домен из `.env` (`SITE_DOMAIN`)
+- автоматически выпускает сертификат Let's Encrypt
+- автоматически продлевает (перевыпускает) сертификат до истечения срока
+
+1. В `.env` укажи:
+
+```bash
+SITE_DOMAIN=chat.example.com
+ACME_EMAIL=admin@example.com
+```
+
+2. Настрой DNS:
+- `A` запись `SITE_DOMAIN` должна указывать на IP сервера с Docker.
+
+3. Открой порты на сервере и в firewall:
+- `80/tcp`
+- `443/tcp`
+
+4. Перезапусти стек:
+
+```bash
+docker compose up --build -d
+```
+
+5. Проверь доступ:
+
+```bash
+curl -I https://<SITE_DOMAIN>/health
+```
+
+Примечание:
+- локально можно продолжать работать через `http://127.0.0.1:8080`.
+- для Bitrix webhooks и пути локального приложения используй `https://<SITE_DOMAIN>/...`.
+
 ## HTTP endpoints для ручной проверки
 
 ### `GET /health`

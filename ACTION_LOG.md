@@ -45,3 +45,6 @@
 | 2026-04-08 | Rebuilt Bitrix panel to one-form flow | Removed separate install/binding sections and SaaS wording; now one connect action with optional advanced fields |
 | 2026-04-08 | Aligned docs with simplified panel flow | Updated Bitrix setup and runbook to describe a single-step portal connection path |
 | 2026-04-08 | Re-ran PHP tests after UI/docs refactor | `php tests/run.php` passed |
+| 2026-04-08 | Added domain/TLS ingress service | Added Caddy in Compose with `SITE_DOMAIN`/`ACME_EMAIL` env, reverse proxy to app, and persistent cert storage |
+| 2026-04-08 | Added env and docs for automatic cert issue/renew | Updated `.env.example`, README, and Bitrix setup guide with DNS/ports/domain requirements |
+| 2026-04-08 | Validated compose and tests after ingress changes | `docker compose config` and `php tests/run.php` passed |

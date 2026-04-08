@@ -1,4 +1,21 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: chat-sync-caddy
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
   app:
     build:
       context: .
@@ -70,5 +87,7 @@ services:
       retries: 10
 
 volumes:
+  caddy-data:
+  caddy-config:
   postgres-data:
   telegram-tdlib-data:

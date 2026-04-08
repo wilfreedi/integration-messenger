@@ -5,7 +5,7 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f app postgres telegram-gateway
+	docker compose logs -f caddy app postgres telegram-gateway
 
 test:
 	php tests/run.php

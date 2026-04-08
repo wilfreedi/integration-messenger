@@ -11,13 +11,20 @@ BITRIX_CONNECTOR_MODE=rest
 BITRIX_WEBHOOK_TOKEN=your_webhook_token
 BITRIX_MANAGEMENT_TOKEN=your_management_token
 BITRIX_DEFAULT_CHANNEL_PROVIDER=telegram
+SITE_DOMAIN=chat.example.com
+ACME_EMAIL=admin@example.com
 ```
 
 Перезапусти приложение:
 
 ```bash
-docker compose up --build -d app
+docker compose up --build -d
 ```
+
+Важно для сертификата:
+- `SITE_DOMAIN` должен смотреть DNS-записью на IP сервера.
+- Порты `80` и `443` должны быть открыты.
+- Сертификат выпускается и продлевается автоматически сервисом `caddy`.
 
 ## 2. Что сделать в самом Bitrix24
 
@@ -27,7 +34,7 @@ docker compose up --build -d app
 4. В настройке внешнего коннектора/приложения укажи webhook:
 
 ```text
-https://<ваш-домен>/api/webhooks/bitrix/open-lines?token=<BITRIX_WEBHOOK_TOKEN>
+https://<SITE_DOMAIN>/api/webhooks/bitrix/open-lines?token=<BITRIX_WEBHOOK_TOKEN>
 ```
 
 5. В разделе `Разработчикам` установи приложение с правами `imconnector`.
@@ -43,7 +50,7 @@ https://<ваш-домен>/api/webhooks/bitrix/open-lines?token=<BITRIX_WEBHOOK
 1. Открой:
 
 ```text
-http://127.0.0.1:8080/panel/bitrix
+https://<SITE_DOMAIN>/panel/bitrix
 ```
 
 2. Заполни поля:
