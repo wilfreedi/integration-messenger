@@ -4,5 +4,19 @@
 
 {$SITE_DOMAIN:localhost} {
 	encode zstd gzip
-	reverse_proxy app:8080
+
+	# Telegram gateway UI over HTTPS: https://<domain>/telegram/
+	handle_path /telegram/* {
+		reverse_proxy telegram-gateway:8090
+	}
+
+	# Telegram gateway API over HTTPS: https://<domain>/v1/*
+	handle /v1/* {
+		reverse_proxy telegram-gateway:8090
+	}
+
+	# Core app routes
+	handle {
+		reverse_proxy app:8080
+	}
 }

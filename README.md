@@ -136,6 +136,9 @@ curl -I https://<SITE_DOMAIN>/health
 Примечание:
 - локально можно продолжать работать через `http://127.0.0.1:8080`.
 - для Bitrix webhooks и пути локального приложения используй `https://<SITE_DOMAIN>/...`.
+- Telegram gateway по HTTPS доступен через:
+  - `https://<SITE_DOMAIN>/telegram/` (UI)
+  - `https://<SITE_DOMAIN>/v1/...` (API)
 
 ## HTTP endpoints для ручной проверки
 

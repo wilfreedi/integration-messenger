@@ -73,3 +73,10 @@ https://<SITE_DOMAIN>/panel/bitrix
 4. Убедись, что ответ вернулся в Telegram.
 
 Если это работает, интеграция настроена правильно.
+
+## 5. Важно про HTTPS
+
+- Не используй `https://<домен>:8090` — это прямой HTTP-порт telegram-gateway без TLS.
+- Для HTTPS используй только:
+  - `https://<SITE_DOMAIN>/panel/bitrix` (панель интеграции)
+  - `https://<SITE_DOMAIN>/telegram/` (UI telegram-gateway)
