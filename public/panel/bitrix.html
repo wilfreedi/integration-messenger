@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bitrix Подключение</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #1c2430;
+      --muted: #5c697a;
+      --line: #d8e0ea;
+      --ok: #087a5a;
+      --danger: #b42318;
+      --accent: #0f5ec7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font: 15px/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(900px 420px at -10% -20%, #ddeafb 0%, transparent 65%),
+        radial-gradient(1000px 500px at 120% 0%, #dff4ef 0%, transparent 62%),
+        var(--bg);
+    }
+    .wrap {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+    h1 { margin: 0; font-size: 22px; }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      letter-spacing: 0.25px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f2f6ff;
+      color: var(--text);
+      padding: 8px 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.primary {
+      color: #fff;
+      border-color: #0b56b4;
+      background: linear-gradient(135deg, #1b6fdb, var(--accent));
+    }
+    .status {
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 8px 10px;
+      min-height: 42px;
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+    .status.error {
+      border-color: #f1b6af;
+      background: #fff3f2;
+      color: var(--danger);
+    }
+    .json {
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #f8fbff;
+      padding: 10px;
+      max-height: 40vh;
+      overflow: auto;
+      font: 12px/1.45 Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+    details {
+      margin-top: 10px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fbfdff;
+    }
+    summary {
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .checkbox input { width: auto; }
+    @media (max-width: 980px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <section class="panel">
+    <h1>Подключение Bitrix</h1>
+    <p class="hint">
+      Один экран и одна кнопка: заполни данные портала, выбери менеджера и `line_id`, затем нажми `Подключить`.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Доступ к API</h2>
+    <div class="grid-2">
+      <div>
+        <label for="apiBase">API base URL</label>
+        <input id="apiBase" placeholder="http://127.0.0.1:8080">
+      </div>
+      <div>
+        <label for="mgmtToken">BITRIX_MANAGEMENT_TOKEN (если включен)</label>
+        <input id="mgmtToken" type="password" placeholder="token">
+      </div>
+    </div>
+    <div class="toolbar">
+      <button id="healthBtn">Проверить Health</button>
+      <button id="reloadBtn">Обновить список подключений</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Подключение Портала</h2>
+    <div class="grid-3">
+      <div>
+        <label for="managerId">Менеджер</label>
+        <select id="managerId"></select>
+      </div>
+      <div>
+        <label for="lineId">ID открытой линии (line_id)</label>
+        <input id="lineId" placeholder="Например: 1">
+      </div>
+      <div>
+        <label for="portalDomain">Портал (domain)</label>
+        <input id="portalDomain" placeholder="mycompany.bitrix24.ru">
+      </div>
+      <div>
+        <label for="accessToken">Access token</label>
+        <input id="accessToken" placeholder="AUTH_ID / access_token">
+      </div>
+      <div>
+        <label for="refreshToken">Refresh token</label>
+        <input id="refreshToken" placeholder="REFRESH_ID / refresh_token">
+      </div>
+      <div>
+        <label for="applicationToken">Application token</label>
+        <input id="applicationToken" placeholder="APP_SID / application_token">
+      </div>
+    </div>
+
+    <details>
+      <summary>Дополнительные поля (обычно не нужно менять)</summary>
+      <div class="grid-3" style="margin-top:10px;">
+        <div>
+          <label for="clientEndpoint">client_endpoint</label>
+          <input id="clientEndpoint" placeholder="https://mycompany.bitrix24.ru/rest">
+        </div>
+        <div>
+          <label for="memberId">member_id (optional)</label>
+          <input id="memberId" placeholder="member_id">
+        </div>
+        <div>
+          <label for="operatorUserId">operator_user_id (optional)</label>
+          <input id="operatorUserId" placeholder="Bitrix user id">
+        </div>
+        <div>
+          <label for="expiresIn">expires_in</label>
+          <input id="expiresIn" value="3600">
+        </div>
+        <div>
+          <label for="scope">scope</label>
+          <input id="scope" value="imconnector">
+        </div>
+      </div>
+      <label class="checkbox">
+        <input id="isEnabled" type="checkbox" checked>
+        Активировать подключение сразу
+      </label>
+    </details>
+
+    <div class="toolbar">
+      <button class="primary" id="connectBtn">Подключить</button>
+    </div>
+    <p class="hint">
+      Внутренний `connector_id` фиксирован (`chat_sync`), вручную не заполняется.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Статус</h2>
+    <div id="status" class="status">Готово.</div>
+  </section>
+
+  <section class="grid-2">
+    <div class="panel">
+      <h2>Подключенные порталы</h2>
+      <div id="portalsBox" class="json">{}</div>
+    </div>
+    <div class="panel">
+      <h2>Подключения менеджеров</h2>
+      <div id="bindingsBox" class="json">{}</div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const apiBaseInput = document.getElementById("apiBase");
+  const tokenInput = document.getElementById("mgmtToken");
+  const managerSelect = document.getElementById("managerId");
+  const statusBox = document.getElementById("status");
+  const portalsBox = document.getElementById("portalsBox");
+  const bindingsBox = document.getElementById("bindingsBox");
+
+  apiBaseInput.value = window.location.origin;
+
+  function setStatus(message, isError = false) {
+    statusBox.textContent = message;
+    statusBox.className = isError ? "status error" : "status";
+  }
+
+  function formatJson(value) {
+    return JSON.stringify(value, null, 2);
+  }
+
+  function authHeaders() {
+    const token = tokenInput.value.trim();
+    const headers = {"Content-Type": "application/json"};
+    if (token !== "") {
+      headers["X-Integration-Token"] = token;
+    }
+    return headers;
+  }
+
+  async function request(path, options = {}) {
+    const base = apiBaseInput.value.trim().replace(/\/+$/, "");
+    if (!base) {
+      throw new Error("Укажи API base URL.");
+    }
+
+    const response = await fetch(base + path, {
+      headers: authHeaders(),
+      ...options
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.message || ("HTTP " + response.status));
+    }
+    return payload;
+  }
+
+  function createOption(value, text) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    return option;
+  }
+
+  async function loadManagerAccounts() {
+    const payload = await request("/api/manager-accounts?channel_provider=telegram", {method: "GET"});
+    const items = payload.items || [];
+    managerSelect.innerHTML = "";
+
+    if (items.length === 0) {
+      managerSelect.appendChild(createOption("", "Нет manager account"));
+      return;
+    }
+
+    items.forEach((item) => {
+      managerSelect.appendChild(
+        createOption(
+          item.external_account_id,
+          item.external_account_id + " (" + item.status + ")"
+        )
+      );
+    });
+  }
+
+  async function loadPortals() {
+    const payload = await request("/api/bitrix/portals", {method: "GET"});
+    portalsBox.textContent = formatJson(payload);
+    return payload.count || 0;
+  }
+
+  async function loadBindings() {
+    const payload = await request("/api/bitrix/bindings", {method: "GET"});
+    bindingsBox.textContent = formatJson(payload);
+    return payload.count || 0;
+  }
+
+  async function reloadData() {
+    const portals = await loadPortals();
+    const bindings = await loadBindings();
+    setStatus("Данные обновлены. Порталов: " + portals + ", подключений: " + bindings);
+  }
+
+  function firstNonEmpty(values) {
+    for (const value of values) {
+      if (typeof value === "string" && value.trim() !== "") {
+        return value.trim();
+      }
+    }
+    return "";
+  }
+
+  function mergeParamsFromSearchAndHash() {
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+    if (hash && hash.includes("=")) {
+      const hashParams = new URLSearchParams(hash);
+      for (const [key, value] of hashParams.entries()) {
+        if (!params.has(key)) {
+          params.set(key, value);
+        }
+      }
+    }
+    return params;
+  }
+
+  function applyBitrixAuthFromUrl() {
+    const params = mergeParamsFromSearchAndHash();
+    const domain = firstNonEmpty([params.get("domain"), params.get("DOMAIN")]).toLowerCase();
+    const accessToken = firstNonEmpty([params.get("access_token"), params.get("AUTH_ID")]);
+    const refreshToken = firstNonEmpty([params.get("refresh_token"), params.get("REFRESH_ID")]);
+    const memberId = firstNonEmpty([params.get("member_id"), params.get("MEMBER_ID")]);
+    const appToken = firstNonEmpty([params.get("application_token"), params.get("APP_SID")]);
+    const endpoint = firstNonEmpty([params.get("client_endpoint"), params.get("CLIENT_ENDPOINT")]);
+    const expires = firstNonEmpty([params.get("expires_in"), params.get("AUTH_EXPIRES"), params.get("expires")]);
+
+    if (domain) {
+      document.getElementById("portalDomain").value = domain;
+    }
+    if (accessToken) {
+      document.getElementById("accessToken").value = accessToken;
+    }
+    if (refreshToken) {
+      document.getElementById("refreshToken").value = refreshToken;
+    }
+    if (memberId) {
+      document.getElementById("memberId").value = memberId;
+    }
+    if (appToken) {
+      document.getElementById("applicationToken").value = appToken;
+    }
+    if (endpoint) {
+      document.getElementById("clientEndpoint").value = endpoint;
+    } else if (domain) {
+      document.getElementById("clientEndpoint").value = "https://" + domain + "/rest";
+    }
+    if (expires) {
+      document.getElementById("expiresIn").value = expires;
+    }
+  }
+
+  function installAuthPayload() {
+    const domain = document.getElementById("portalDomain").value.trim().toLowerCase();
+    const endpointRaw = document.getElementById("clientEndpoint").value.trim();
+    const endpoint = endpointRaw || ("https://" + domain + "/rest");
+    const expires = parseInt(document.getElementById("expiresIn").value.trim() || "3600", 10);
+
+    return {
+      domain: domain,
+      client_endpoint: endpoint,
+      member_id: document.getElementById("memberId").value.trim() || undefined,
+      access_token: document.getElementById("accessToken").value.trim(),
+      refresh_token: document.getElementById("refreshToken").value.trim(),
+      application_token: document.getElementById("applicationToken").value.trim(),
+      scope: document.getElementById("scope").value.trim() || "",
+      expires_in: Number.isFinite(expires) && expires > 0 ? expires : 3600
+    };
+  }
+
+  async function connect() {
+    const payload = await request("/api/bitrix/connect-profile", {
+      method: "POST",
+      body: JSON.stringify({
+        auth: installAuthPayload(),
+        channel_provider: "telegram",
+        manager_account_external_id: managerSelect.value.trim(),
+        line_id: document.getElementById("lineId").value.trim(),
+        operator_user_id: document.getElementById("operatorUserId").value.trim() || undefined,
+        is_enabled: document.getElementById("isEnabled").checked
+      })
+    });
+
+    setStatus(
+      "Подключено: " +
+      payload.binding.manager_account_external_id +
+      " -> " +
+      payload.portal.portal_domain +
+      " (line_id=" +
+      payload.binding.line_id +
+      ")"
+    );
+
+    await reloadData();
+  }
+
+  async function checkHealth() {
+    const payload = await request("/health", {method: "GET"});
+    setStatus("Health OK. bitrix_management_api_protected=" + payload.bitrix_management_api_protected);
+  }
+
+  async function withError(fn) {
+    try {
+      await fn();
+    } catch (error) {
+      setStatus(error.message || "Ошибка запроса", true);
+    }
+  }
+
+  document.getElementById("connectBtn").onclick = () => withError(connect);
+  document.getElementById("reloadBtn").onclick = () => withError(reloadData);
+  document.getElementById("healthBtn").onclick = () => withError(checkHealth);
+
+  applyBitrixAuthFromUrl();
+  withError(async () => {
+    await loadManagerAccounts();
+    await reloadData();
+  });
+</script>
+</body>
+</html>
