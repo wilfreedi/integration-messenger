@@ -25,6 +25,7 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
 
         // Keep connector endpoints in sync with current deployment URL/token.
         $this->setConnectorData($baseUrl, $connectorId, $lineId, $authToken);
+        $this->ensureMessageEventBinding($baseUrl, $authToken);
 
         $status = $this->status($baseUrl, $connectorId, $lineId, $authToken);
         if (($status['ok'] ?? false) !== true) {
@@ -153,6 +154,88 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
         if (($response['result'] ?? true) === false) {
             throw new RuntimeException('imconnector.connector.data.set returned result=false');
         }
+    }
+
+    private function ensureMessageEventBinding(string $baseUrl, ?string $authToken): void
+    {
+        if ($this->webhookUrl === '') {
+            return;
+        }
+
+        $eventName = 'OnImConnectorMessageAdd';
+        $eventsResult = null;
+
+        try {
+            $eventsResponse = $this->restClient->call(
+                $baseUrl,
+                'event.get',
+                $this->withAuth([], $authToken),
+            );
+            $eventsResult = $eventsResponse['result'] ?? null;
+        } catch (RuntimeException) {
+            return;
+        }
+
+        if (!is_array($eventsResult)) {
+            return;
+        }
+
+        if ($this->hasEventBinding($eventsResult, $eventName, $this->webhookUrl)) {
+            return;
+        }
+
+        try {
+            $this->restClient->call(
+                $baseUrl,
+                'event.bind',
+                $this->withAuth([
+                    'EVENT_NAME' => $eventName,
+                    'HANDLER' => $this->webhookUrl,
+                ], $authToken),
+            );
+        } catch (RuntimeException $firstException) {
+            try {
+                $this->restClient->call(
+                    $baseUrl,
+                    'event.bind',
+                    $this->withAuth([
+                        'event' => $eventName,
+                        'handler' => $this->webhookUrl,
+                    ], $authToken),
+                );
+            } catch (RuntimeException) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * @param array<int|string, mixed> $events
+     */
+    private function hasEventBinding(array $events, string $eventName, string $handlerUrl): bool
+    {
+        foreach ($events as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $entryEvent = $entry['EVENT_NAME'] ?? $entry['event'] ?? null;
+            $entryHandler = $entry['HANDLER'] ?? $entry['handler'] ?? null;
+            if (
+                is_string($entryEvent)
+                && is_string($entryHandler)
+                && strcasecmp($entryEvent, $eventName) === 0
+                && trim($entryHandler) === $handlerUrl
+            ) {
+                return true;
+            }
+
+            if ($this->hasEventBinding($entry, $eventName, $handlerUrl)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

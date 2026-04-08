@@ -42,7 +42,7 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
         );
 
         Assertions::assertSame(
-            ['imconnector.status', 'imconnector.connector.data.set', 'imconnector.status'],
+            ['imconnector.status', 'imconnector.connector.data.set', 'event.get', 'imconnector.status'],
             $client->calledMethods,
         );
 
@@ -96,6 +96,7 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
                 'imconnector.register',
                 'imconnector.activate',
                 'imconnector.connector.data.set',
+                'event.get',
                 'imconnector.status',
             ],
             $client->calledMethods,
@@ -136,4 +137,3 @@ final class LifecycleRecordingBitrixRestClient implements BitrixRestClient
         return is_array($response) ? $response : ['result' => true];
     }
 }
-

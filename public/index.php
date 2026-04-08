@@ -89,7 +89,7 @@ try {
         ]);
     }
 
-    if (requiresPanelAuthentication($path)) {
+    if (requiresPanelAuthentication($method, $path)) {
         if (!$panelAccess->isAuthenticated($clientIp, $userAgent)) {
             if (isPanelHtmlPath($path)) {
                 redirectToPanelLogin(currentRequestUri());
@@ -112,6 +112,25 @@ try {
     }
 
     if (($method === 'GET' || $method === 'POST') && ($path === '/bitrix/app' || $path === '/bitrix/app/')) {
+        if ($method === 'POST') {
+            $token = $_GET['token'] ?? '';
+            $payload = $json->decodeRequestBody();
+            if ($payload === [] && $_POST !== []) {
+                /** @var array<string, mixed> $payload */
+                $payload = $_POST;
+            }
+
+            if (isLikelyBitrixEventPayload($payload)) {
+                $json->respond(
+                    $container->bitrixOpenLinesWebhookController()->handle(
+                        $payload,
+                        is_string($token) ? $token : '',
+                    ),
+                    202,
+                );
+            }
+        }
+
         redirectBitrixAppToPanel($_GET, $_POST);
         exit;
     }
@@ -419,10 +438,10 @@ function scalarParam(mixed $value): ?string
     return null;
 }
 
-function requiresPanelAuthentication(string $path): bool
+function requiresPanelAuthentication(string $method, string $path): bool
 {
     if ($path === '/bitrix/app' || $path === '/bitrix/app/') {
-        return true;
+        return strtoupper($method) !== 'POST';
     }
 
     if (str_starts_with($path, '/panel/bitrix')) {
@@ -513,4 +532,25 @@ function redirectToPanelLogin(string $returnTo): never
 
     header('Location: ' . $location, true, 302);
     exit;
+}
+
+/**
+ * @param array<string, mixed> $payload
+ */
+function isLikelyBitrixEventPayload(array $payload): bool
+{
+    if (isset($payload['event']) || isset($payload['EVENT'])) {
+        return true;
+    }
+
+    $data = $payload['data'] ?? $payload['DATA'] ?? null;
+    if (is_array($data)) {
+        return isset($data['DATA']) || isset($data['MESSAGES']) || isset($data['FIELDS']);
+    }
+
+    if (is_string($data) && trim($data) !== '') {
+        return true;
+    }
+
+    return false;
 }

@@ -485,8 +485,9 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
       tokenInput.value = managementToken;
     }
 
-    handlerUrlInput.value = base ? (base + "/bitrix/app") : "";
-    installUrlInput.value = base ? (base + "/bitrix/app") : "";
+    const appTokenSuffix = webhookToken !== "" ? ("?token=" + encodeURIComponent(webhookToken)) : "";
+    handlerUrlInput.value = base ? (base + "/bitrix/app" + appTokenSuffix) : "";
+    installUrlInput.value = base ? (base + "/bitrix/app" + appTokenSuffix) : "";
     webhookUrlInput.value = base
       ? (base + "/api/webhooks/bitrix/open-lines" + (webhookToken !== "" ? ("?token=" + webhookToken) : ""))
       : "";
