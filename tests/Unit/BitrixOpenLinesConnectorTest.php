@@ -29,8 +29,15 @@ final class BitrixOpenLinesConnectorTest
     {
         $routingClient = new ConnectorRecordingBitrixRestClient([
             'result' => [
-                'messages' => [
-                    ['id' => 'bitrix-routing-message-1'],
+                'SUCCESS' => true,
+                'DATA' => [
+                    'RESULT' => [
+                        [
+                            'SUCCESS' => true,
+                            'message' => ['id' => 'bitrix-routing-message-1'],
+                            'session' => ['ID' => '1', 'CHAT_ID' => '10'],
+                        ],
+                    ],
                 ],
             ],
         ]);
@@ -58,8 +65,15 @@ final class BitrixOpenLinesConnectorTest
     {
         $routingClient = new ConnectorRecordingBitrixRestClient([
             'result' => [
-                'messages' => [
-                    ['id' => 'bitrix-routing-message-2'],
+                'SUCCESS' => true,
+                'DATA' => [
+                    'RESULT' => [
+                        [
+                            'SUCCESS' => true,
+                            'message' => ['id' => 'bitrix-routing-message-2'],
+                            'session' => ['ID' => '2', 'CHAT_ID' => '20'],
+                        ],
+                    ],
                 ],
             ],
         ]);
@@ -113,8 +127,15 @@ final class BitrixOpenLinesConnectorTest
     {
         $routingClient = new ConnectorRecordingBitrixRestClient([
             'result' => [
-                'messages' => [
-                    ['id' => 'bitrix-routing-message-3'],
+                'SUCCESS' => true,
+                'DATA' => [
+                    'RESULT' => [
+                        [
+                            'SUCCESS' => true,
+                            'message' => ['id' => 'bitrix-routing-message-3'],
+                            'session' => ['ID' => '3', 'CHAT_ID' => '30'],
+                        ],
+                    ],
                 ],
             ],
         ]);

@@ -21,8 +21,15 @@ final class BitrixOpenLinesApiTest
     {
         $restClient = new RecordingBitrixRestClient([
             'result' => [
-                'messages' => [
-                    ['id' => 'bitrix-message-100'],
+                'SUCCESS' => true,
+                'DATA' => [
+                    'RESULT' => [
+                        [
+                            'SUCCESS' => true,
+                            'message' => ['id' => 'bitrix-message-100'],
+                            'session' => ['ID' => '323', 'CHAT_ID' => '1767'],
+                        ],
+                    ],
                 ],
             ],
         ]);

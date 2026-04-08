@@ -233,6 +233,19 @@ final readonly class BitrixIntegrationCheckController
                     $this->withAuth([], $route->accessToken),
                 );
 
+                if ($method === 'app.info') {
+                    $appInfo = $response['result'] ?? null;
+                    if (is_array($appInfo) && array_key_exists('INSTALLED', $appInfo) && $this->toBool($appInfo['INSTALLED']) !== true) {
+                        return [
+                            'status' => 'failed',
+                            'ok' => false,
+                            'method' => $method,
+                            'message' => 'Приложение не установлено в портале (app.info.INSTALLED=false).',
+                            'response_preview' => $this->shortPreview($response),
+                        ];
+                    }
+                }
+
                 return [
                     'status' => 'ok',
                     'ok' => true,

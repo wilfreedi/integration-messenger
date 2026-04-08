@@ -59,8 +59,14 @@ final readonly class BitrixOpenLinesApi
         );
 
         $this->assertMessageSent($response);
+        $sessionId = $this->extractSessionId($response);
+        if ($sessionId === null) {
+            throw new RuntimeException(
+                'Bitrix did not return open line session for sent message: ' . $this->responsePreview($response),
+            );
+        }
 
-        return $this->extractMessageId($response) ?? ('bitrix-message-' . bin2hex(random_bytes(8)));
+        return $this->extractMessageId($response) ?? $sourceMessageId;
     }
 
     /**
@@ -161,7 +167,7 @@ final readonly class BitrixOpenLinesApi
     {
         $result = $response['result'] ?? null;
         if (!is_array($result)) {
-            return;
+            throw new RuntimeException('Bitrix response has no result payload.');
         }
 
         $overallSuccess = $result['SUCCESS'] ?? null;
@@ -174,7 +180,7 @@ final readonly class BitrixOpenLinesApi
 
         $items = $result['DATA']['RESULT'] ?? null;
         if (!is_array($items) || $items === []) {
-            return;
+            throw new RuntimeException('Bitrix response has no DATA.RESULT entries.');
         }
 
         $first = $items[0] ?? null;
@@ -189,6 +195,51 @@ final readonly class BitrixOpenLinesApi
                 'Bitrix rejected message item: ' . ($errors !== [] ? implode('; ', $errors) : 'unknown error'),
             );
         }
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function extractSessionId(array $response): ?string
+    {
+        $result = $response['result'] ?? null;
+        if (!is_array($result)) {
+            return null;
+        }
+
+        return $this->firstScalarFromPaths($result, [
+            ['DATA', 'RESULT', 0, 'session', 'ID'],
+            ['DATA', 'RESULT', 0, 'SESSION', 'ID'],
+            ['data', 'result', 0, 'session', 'id'],
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function responsePreview(array $response): string
+    {
+        $result = $response['result'] ?? null;
+        if (!is_array($result)) {
+            return 'result is not an object';
+        }
+
+        $preview = [
+            'SUCCESS' => $result['SUCCESS'] ?? null,
+            'ERRORS' => $result['ERRORS'] ?? null,
+            'DATA.RESULT[0].SUCCESS' => $result['DATA']['RESULT'][0]['SUCCESS'] ?? null,
+            'DATA.RESULT[0].ERRORS' => $result['DATA']['RESULT'][0]['ERRORS'] ?? null,
+            'DATA.RESULT[0].session.ID' => $result['DATA']['RESULT'][0]['session']['ID'] ?? null,
+            'DATA.RESULT[0].session.CHAT_ID' => $result['DATA']['RESULT'][0]['session']['CHAT_ID'] ?? null,
+            'DATA.RESULT[0].message.id' => $result['DATA']['RESULT'][0]['message']['id'] ?? null,
+        ];
+
+        $encoded = json_encode($preview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($encoded)) {
+            return 'unable to encode preview';
+        }
+
+        return $encoded;
     }
 
     private function sanitizePersonName(string $value): ?string

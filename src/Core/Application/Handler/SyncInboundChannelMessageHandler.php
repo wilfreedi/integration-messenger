@@ -204,6 +204,7 @@ final class SyncInboundChannelMessageHandler
             [
                 'conversation_id' => $conversation->id()->toString(),
                 'message_id' => $message->id()->toString(),
+                'crm_external_message_id' => $crmResult->externalMessageId,
             ],
         ));
 
