@@ -22,6 +22,7 @@ final readonly class BitrixIntegrationCheckController
         private BitrixTokenManager $tokenManager,
         private BitrixOpenLinesConnectorLifecycle $connectorLifecycle,
         private BitrixRestClient $restClient,
+        private string $bitrixConnectorMode = '',
         private string $telegramGatewayBaseUrl = '',
         private string $telegramGatewayToken = '',
     ) {
@@ -47,48 +48,129 @@ final readonly class BitrixIntegrationCheckController
         }
 
         $routeFromInstall = $this->routeFromInstall($install, $requestedLineId);
-        $validatedRoute = $this->tokenManager->ensureValidRoute(
-            $routeFromInstall,
-            $managerAccountExternalId ?? $portalDomain,
-        );
-
-        $portalProbe = $this->probePortalApi($validatedRoute);
         $bindingProbe = $this->probeBinding($portalDomain, $channelProvider, $managerAccountExternalId, $requestedLineId);
-        $connectorProbe = $this->probeConnectorStatus(
-            $validatedRoute,
-            is_string($bindingProbe['connector_id'] ?? null) ? (string) $bindingProbe['connector_id'] : $validatedRoute->connectorId,
-            is_string($bindingProbe['line_id'] ?? null) ? (string) $bindingProbe['line_id'] : ($requestedLineId ?? ''),
-        );
+        $runtimeProbe = $this->probeRuntime();
         $telegramGatewayProbe = $this->probeTelegramGateway($managerAccountExternalId);
 
+        $tokenError = null;
+        $route = $routeFromInstall;
+
+        try {
+            $route = $this->tokenManager->ensureValidRoute(
+                $routeFromInstall,
+                $managerAccountExternalId ?? $portalDomain,
+            );
+        } catch (RuntimeException $exception) {
+            $tokenError = $exception->getMessage();
+        }
+
+        $tokenProbe = [
+            'status' => $tokenError === null ? 'ok' : 'failed',
+            'ok' => $tokenError === null,
+            'access_token_present' => $route->accessToken !== null && $route->accessToken !== '',
+            'refresh_token_present' => $route->refreshToken !== null && $route->refreshToken !== '',
+            'expires_at' => $route->expiresAt->format(DATE_ATOM),
+            'oauth_refresh_configured' => $route->oauthClientId !== null
+                && $route->oauthClientId !== ''
+                && $route->oauthClientSecret !== null
+                && $route->oauthClientSecret !== '',
+        ];
+        if ($tokenError !== null) {
+            $tokenProbe['message'] = $tokenError;
+        }
+
+        if ($tokenError !== null) {
+            $portalProbe = [
+                'status' => 'failed',
+                'ok' => false,
+                'method' => 'app.info',
+                'message' => 'Проверка Bitrix API пропущена из-за невалидного/просроченного токена.',
+                'details' => $tokenError,
+            ];
+            $connectorProbe = [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'Проверка коннектора пропущена: токен невалиден или истек.',
+                'details' => $tokenError,
+            ];
+            $lineProbe = [
+                'status' => 'failed',
+                'ok' => false,
+                'line_id' => is_string($bindingProbe['line_id'] ?? null)
+                    ? (string) $bindingProbe['line_id']
+                    : ($requestedLineId ?? ''),
+                'method' => 'imopenlines.config.get',
+                'message' => 'Проверка линии пропущена: токен невалиден или истек.',
+                'details' => $tokenError,
+            ];
+
+            $overallOk = false;
+
+            return [
+                'status' => 'ok',
+                'ok' => $overallOk,
+                'portal_domain' => $portalDomain,
+                'token' => $tokenProbe,
+                'portal_api' => $portalProbe,
+                'binding' => $bindingProbe,
+                'connector' => $connectorProbe,
+                'line' => $lineProbe,
+                'runtime' => $runtimeProbe,
+                'telegram_gateway' => $telegramGatewayProbe,
+            ];
+        }
+
+        $portalProbe = $this->probePortalApi($route);
+        $connectorProbe = $this->probeConnectorStatus(
+            $route,
+            is_string($bindingProbe['connector_id'] ?? null) ? (string) $bindingProbe['connector_id'] : $route->connectorId,
+            is_string($bindingProbe['line_id'] ?? null) ? (string) $bindingProbe['line_id'] : ($requestedLineId ?? ''),
+        );
+
         $lineId = $bindingProbe['line_id'] ?? $requestedLineId ?? '';
-        $lineProbe = $this->probeLine($validatedRoute, (string) $lineId);
+        $lineProbe = $this->probeLine($route, (string) $lineId);
 
         $overallOk = $portalProbe['ok'] === true
             && (($bindingProbe['ok'] ?? true) === true)
             && (($connectorProbe['ok'] ?? true) === true)
             && (($telegramGatewayProbe['ok'] ?? true) === true)
+            && (($runtimeProbe['ok'] ?? true) === true)
             && ($lineProbe['status'] === 'ok' || $lineProbe['status'] === 'skipped' || $lineProbe['status'] === 'unknown');
 
         return [
             'status' => 'ok',
             'ok' => $overallOk,
             'portal_domain' => $portalDomain,
-            'token' => [
-                'status' => 'ok',
-                'access_token_present' => $validatedRoute->accessToken !== null && $validatedRoute->accessToken !== '',
-                'refresh_token_present' => $validatedRoute->refreshToken !== null && $validatedRoute->refreshToken !== '',
-                'expires_at' => $validatedRoute->expiresAt->format(DATE_ATOM),
-                'oauth_refresh_configured' => $validatedRoute->oauthClientId !== null
-                    && $validatedRoute->oauthClientId !== ''
-                    && $validatedRoute->oauthClientSecret !== null
-                    && $validatedRoute->oauthClientSecret !== '',
-            ],
+            'token' => $tokenProbe,
             'portal_api' => $portalProbe,
             'binding' => $bindingProbe,
             'connector' => $connectorProbe,
             'line' => $lineProbe,
+            'runtime' => $runtimeProbe,
             'telegram_gateway' => $telegramGatewayProbe,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function probeRuntime(): array
+    {
+        $mode = strtolower(trim($this->bitrixConnectorMode));
+        if ($mode === '' || $mode === 'rest') {
+            return [
+                'status' => 'ok',
+                'ok' => true,
+                'bitrix_connector_mode' => $this->bitrixConnectorMode,
+                'message' => 'Рабочий режим коннектора Bitrix включен.',
+            ];
+        }
+
+        return [
+            'status' => 'failed',
+            'ok' => false,
+            'bitrix_connector_mode' => $this->bitrixConnectorMode,
+            'message' => 'Включен BITRIX_CONNECTOR_MODE=stub. Отправка в реальный Bitrix отключена.',
         ];
     }
 

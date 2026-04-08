@@ -257,6 +257,7 @@ final class ApplicationContainer
             $this->bitrixTokenManager(),
             $this->bitrixOpenLinesLifecycle(),
             $this->bitrixRestClient(),
+            $this->config->bitrixConnectorMode,
             $this->config->telegramGatewayBaseUrl,
             $this->config->telegramGatewayToken,
         );

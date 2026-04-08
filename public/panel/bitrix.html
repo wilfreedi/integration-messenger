@@ -940,6 +940,10 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
 
     diagnosticsBox.textContent = formatJson(payload);
     applyTelegramGatewayHintFromDiagnostics(payload);
+    if (payload.token && payload.token.status === "failed") {
+      setStatus(payload.token.message || "Токен Bitrix невалиден или истек.", true);
+      return;
+    }
     setStatus(
       payload.ok ? "Портал Bitrix подключен корректно." : "Проверка портала выявила проблемы.",
       !payload.ok
@@ -967,6 +971,11 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
 
     diagnosticsBox.textContent = formatJson(payload);
     applyTelegramGatewayHintFromDiagnostics(payload);
+
+    if (payload.token && payload.token.status === "failed") {
+      setStatus(payload.token.message || "Токен Bitrix невалиден или истек.", true);
+      return;
+    }
 
     const lineStatus = (payload.line && payload.line.status) ? payload.line.status : "unknown";
     if (payload.ok && lineStatus === "ok") {

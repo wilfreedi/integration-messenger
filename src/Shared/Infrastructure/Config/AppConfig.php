@@ -42,7 +42,7 @@ final readonly class AppConfig
             self::env('DB_NAME'),
             self::env('DB_USER'),
             self::env('DB_PASSWORD'),
-            self::env('BITRIX_CONNECTOR_MODE', 'stub'),
+            self::env('BITRIX_CONNECTOR_MODE', 'rest'),
             self::env('BITRIX_WEBHOOK_TOKEN', ''),
             self::env('BITRIX_MANAGEMENT_TOKEN', ''),
             self::env('BITRIX_DEFAULT_CHANNEL_PROVIDER', 'telegram'),
