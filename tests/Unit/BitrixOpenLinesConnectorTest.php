@@ -7,6 +7,7 @@ namespace ChatSync\Tests\Unit;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingContext;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingResolver;
 use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
+use ChatSync\App\Integration\Connector\BitrixOpenLinesConnectorLifecycle;
 use ChatSync\App\Integration\Connector\BitrixOpenLinesConnector;
 use ChatSync\App\Integration\Connector\BitrixRestClient;
 use ChatSync\Core\Application\Port\Connector\SendCrmMessageRequest;
@@ -38,6 +39,7 @@ final class BitrixOpenLinesConnectorTest
             $routingClient,
             new StaticBitrixRoutingResolver(null),
             new StaticBitrixTokenManager(null),
+            new NoopBitrixLifecycle(),
         );
 
         $thrown = false;
@@ -79,6 +81,7 @@ final class BitrixOpenLinesConnectorTest
             $routingClient,
             $resolver,
             new StaticBitrixTokenManager(null),
+            new NoopBitrixLifecycle(),
         );
 
         $result = $connector->sendMessage(self::request('telegram-manager-account'));
@@ -146,12 +149,20 @@ final class BitrixOpenLinesConnectorTest
                 oauthServerEndpoint: 'https://oauth.bitrix.info/rest',
                 expiresAt: new DateTimeImmutable('2030-01-01T00:00:00+00:00'),
             )),
+            new NoopBitrixLifecycle(),
         );
 
         $result = $connector->sendMessage(self::request('telegram-manager-account'));
 
         Assertions::assertSame('bitrix-routing-message-3', $result->externalMessageId);
         Assertions::assertSame('fresh-token', $routingClient->lastPayload['auth'] ?? null);
+    }
+}
+
+final class NoopBitrixLifecycle implements BitrixOpenLinesConnectorLifecycle
+{
+    public function ensure(string $baseUrl, string $connectorId, string $lineId, ?string $authToken): void
+    {
     }
 }
 

@@ -43,6 +43,8 @@ use ChatSync\App\Integration\Bitrix\StreamBitrixOAuthClient;
 use ChatSync\App\Integration\Bitrix\UpsertManagerBitrixBindingHandler;
 use ChatSync\App\Integration\Connector\GatewayTelegramChannelConnector;
 use ChatSync\App\Integration\Connector\BitrixOpenLinesConnector;
+use ChatSync\App\Integration\Connector\BitrixOpenLinesConnectorLifecycle;
+use ChatSync\App\Integration\Connector\RestBitrixOpenLinesConnectorLifecycle;
 use ChatSync\App\Integration\Connector\StreamBitrixRestClient;
 use ChatSync\App\Integration\Connector\StreamTelegramGatewayHttpClient;
 use ChatSync\App\Integration\Connector\StubBitrixOpenLinesConnector;
@@ -90,6 +92,7 @@ final class ApplicationContainer
     private ?StreamBitrixRestClient $bitrixRestClient = null;
     private ?StreamBitrixOAuthClient $bitrixOAuthClient = null;
     private ?BitrixTokenManager $bitrixTokenManager = null;
+    private ?BitrixOpenLinesConnectorLifecycle $bitrixOpenLinesLifecycle = null;
 
     public function __construct(private readonly AppConfig $config)
     {
@@ -319,6 +322,7 @@ final class ApplicationContainer
                 $this->bitrixRestClient(),
                 new PdoManagerBitrixBindingRepository($this->pdo()),
                 $this->bitrixTokenManager(),
+                $this->bitrixOpenLinesLifecycle(),
             ),
             default => throw new RuntimeException(sprintf(
                 'Unsupported BITRIX_CONNECTOR_MODE "%s".',
@@ -344,5 +348,22 @@ final class ApplicationContainer
             new PdoBitrixPortalInstallRepository($this->pdo()),
             $this->clock(),
         );
+    }
+
+    private function bitrixOpenLinesLifecycle(): BitrixOpenLinesConnectorLifecycle
+    {
+        return $this->bitrixOpenLinesLifecycle ??= new RestBitrixOpenLinesConnectorLifecycle(
+            $this->bitrixRestClient(),
+            $this->placementHandlerUrl(),
+        );
+    }
+
+    private function placementHandlerUrl(): string
+    {
+        if ($this->config->siteDomain !== '') {
+            return 'https://' . $this->config->siteDomain . '/panel/bitrix';
+        }
+
+        return 'https://example.com/panel/bitrix';
     }
 }

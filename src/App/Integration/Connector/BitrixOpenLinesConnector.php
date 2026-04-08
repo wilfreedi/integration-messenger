@@ -19,6 +19,7 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
         private BitrixRestClient $restClient,
         private BitrixRoutingResolver $routingResolver,
         private BitrixTokenManager $tokenManager,
+        private BitrixOpenLinesConnectorLifecycle $lifecycle,
     ) {
     }
 
@@ -67,6 +68,12 @@ final readonly class BitrixOpenLinesConnector implements CrmConnector
         }
 
         $route = $this->tokenManager->ensureValidRoute($route, $request->managerAccountExternalId);
+        $this->lifecycle->ensure(
+            $route->restBaseUrl,
+            $route->connectorId,
+            $route->lineId,
+            $route->accessToken,
+        );
 
         return new BitrixOpenLinesApi(
             $route->restBaseUrl,

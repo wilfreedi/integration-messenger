@@ -50,12 +50,18 @@ final readonly class BitrixIntegrationCheckController
 
         $portalProbe = $this->probePortalApi($validatedRoute);
         $bindingProbe = $this->probeBinding($portalDomain, $channelProvider, $managerAccountExternalId, $requestedLineId);
+        $connectorProbe = $this->probeConnectorStatus(
+            $validatedRoute,
+            is_string($bindingProbe['connector_id'] ?? null) ? (string) $bindingProbe['connector_id'] : $validatedRoute->connectorId,
+            is_string($bindingProbe['line_id'] ?? null) ? (string) $bindingProbe['line_id'] : ($requestedLineId ?? ''),
+        );
 
         $lineId = $bindingProbe['line_id'] ?? $requestedLineId ?? '';
         $lineProbe = $this->probeLine($validatedRoute, (string) $lineId);
 
         $overallOk = $portalProbe['ok'] === true
             && (($bindingProbe['ok'] ?? true) === true)
+            && (($connectorProbe['ok'] ?? true) === true)
             && ($lineProbe['status'] === 'ok' || $lineProbe['status'] === 'skipped' || $lineProbe['status'] === 'unknown');
 
         return [
@@ -74,7 +80,78 @@ final readonly class BitrixIntegrationCheckController
             ],
             'portal_api' => $portalProbe,
             'binding' => $bindingProbe,
+            'connector' => $connectorProbe,
             'line' => $lineProbe,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function probeConnectorStatus(BitrixRoutingContext $route, string $connectorId, string $lineId): array
+    {
+        if ($connectorId === '') {
+            return [
+                'status' => 'skipped',
+                'ok' => true,
+                'message' => 'connector_id не задан, проверка коннектора пропущена.',
+            ];
+        }
+        if ($lineId === '') {
+            return [
+                'status' => 'skipped',
+                'ok' => true,
+                'message' => 'line_id не задан, проверка статуса коннектора пропущена.',
+            ];
+        }
+
+        try {
+            $response = $this->restClient->call(
+                $route->restBaseUrl,
+                'imconnector.status',
+                $this->withAuth([
+                    'CONNECTOR' => $connectorId,
+                    'LINE' => $lineId,
+                ], $route->accessToken),
+            );
+        } catch (RuntimeException $exception) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'Не удалось получить статус коннектора.',
+                'details' => $exception->getMessage(),
+                'connector_id' => $connectorId,
+                'line_id' => $lineId,
+            ];
+        }
+
+        $result = $response['result'] ?? null;
+        if (!is_array($result)) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'message' => 'Некорректный ответ imconnector.status.',
+                'connector_id' => $connectorId,
+                'line_id' => $lineId,
+                'response_preview' => $this->shortPreview($response),
+            ];
+        }
+
+        $configured = $this->toBool($result['CONFIGURED'] ?? null);
+        $active = $this->toBool($result['ACTIVE'] ?? ($result['STATUS'] ?? null));
+        $ok = $configured && $active;
+
+        return [
+            'status' => $ok ? 'ok' : 'failed',
+            'ok' => $ok,
+            'connector_id' => $connectorId,
+            'line_id' => $lineId,
+            'configured' => $configured,
+            'active' => $active,
+            'message' => $ok
+                ? 'Коннектор активен и настроен.'
+                : 'Коннектор не готов. Нужны register/activate/connector.data.set.',
+            'response_preview' => $this->shortPreview($response),
         ];
     }
 
@@ -329,5 +406,19 @@ final readonly class BitrixIntegrationCheckController
 
         return $preview;
     }
-}
 
+    private function toBool(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value === 1;
+        }
+        if (is_string($value)) {
+            return in_array(strtolower($value), ['1', 'true', 't', 'yes', 'y', 'on'], true);
+        }
+
+        return false;
+    }
+}
