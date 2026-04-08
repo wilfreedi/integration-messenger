@@ -198,6 +198,7 @@ final class ApplicationContainer
             new PdoManagerBitrixBindingRepository($this->pdo()),
             $this->bitrixTokenManager(),
             $this->bitrixRestClient(),
+            new PdoExternalOperationLogger($this->pdo(), $this->idGenerator(), $this->clock()),
             $this->config->bitrixWebhookToken,
         );
     }

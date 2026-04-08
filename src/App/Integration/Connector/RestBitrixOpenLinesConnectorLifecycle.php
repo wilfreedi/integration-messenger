@@ -135,6 +135,7 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
     {
         $dataId = sprintf('%s_line%s', $connectorId, $lineId);
         $displayName = sprintf('Chat Sync Line %s', $lineId);
+        $runtimeWebhookUrl = $this->runtimeWebhookUrl();
 
         $response = $this->restClient->call(
             $baseUrl,
@@ -144,8 +145,8 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
                 'LINE' => ctype_digit($lineId) ? (int) $lineId : $lineId,
                 'DATA' => [
                     'ID' => $dataId,
-                    'URL' => $this->placementHandlerUrl,
-                    'URL_IM' => $this->placementHandlerUrl,
+                    'URL' => $runtimeWebhookUrl,
+                    'URL_IM' => $runtimeWebhookUrl,
                     'NAME' => $displayName,
                 ],
             ], $authToken),
@@ -276,5 +277,10 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
         );
 
         return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
+
+    private function runtimeWebhookUrl(): string
+    {
+        return $this->webhookUrl !== '' ? $this->webhookUrl : $this->placementHandlerUrl;
     }
 }

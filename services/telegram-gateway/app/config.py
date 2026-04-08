@@ -17,6 +17,7 @@ class GatewayConfig:
     tdlib_db_dir: str
     tdlib_files_dir: str
     log_level: str
+    sync_manager_outgoing: bool
 
     @property
     def is_tdlib_configured(self) -> bool:
@@ -45,5 +46,6 @@ class GatewayConfig:
             tdlib_db_dir=os.getenv("TELEGRAM_GATEWAY_TDLIB_DB_DIR", "/data/tdlib").strip(),
             tdlib_files_dir=os.getenv("TELEGRAM_GATEWAY_TDLIB_FILES_DIR", "/data/files").strip(),
             log_level=os.getenv("TELEGRAM_GATEWAY_LOG_LEVEL", "INFO").strip() or "INFO",
+            sync_manager_outgoing=os.getenv("TELEGRAM_GATEWAY_SYNC_MANAGER_OUTGOING", "1").strip().lower()
+            not in {"0", "false", "no", "off"},
         )
-

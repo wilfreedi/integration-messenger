@@ -25,6 +25,7 @@ class TelegramGatewayManagerRebindTest(unittest.TestCase):
                 tdlib_db_dir=str(base / "tdlib"),
                 tdlib_files_dir=str(base / "files"),
                 log_level="INFO",
+                sync_manager_outgoing=True,
             )
         )
         self._gateway.start()
@@ -64,4 +65,3 @@ class TelegramGatewayManagerRebindTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

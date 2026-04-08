@@ -11,7 +11,10 @@ use ChatSync\App\Integration\Connector\BitrixOpenLinesApi;
 use ChatSync\App\Integration\Connector\BitrixRestClient;
 use ChatSync\App\Query\MessageMappingLookup;
 use ChatSync\Core\Application\Handler\SyncOutboundCrmMessageHandler;
+use ChatSync\Core\Application\Port\Logging\ExternalOperationLogEntry;
+use ChatSync\Core\Application\Port\Logging\ExternalOperationLogger;
 use ChatSync\Core\Domain\Enum\ExternalSystemType;
+use ChatSync\Core\Domain\Enum\IntegrationDirection;
 use InvalidArgumentException;
 use Throwable;
 
@@ -24,6 +27,7 @@ final readonly class BitrixOpenLinesWebhookController
         private BitrixRoutingResolver $routingResolver,
         private BitrixTokenManager $tokenManager,
         private BitrixRestClient $bitrixRestClient,
+        private ExternalOperationLogger $logger,
         private string $webhookToken = '',
     ) {
     }
@@ -38,7 +42,35 @@ final readonly class BitrixOpenLinesWebhookController
             throw new InvalidArgumentException('Invalid Bitrix webhook token.');
         }
 
-        $messages = $this->validator->validate($payload);
+        $webhookCorrelationId = sprintf('bitrix-webhook:%s', substr(sha1(json_encode($payload) ?: ''), 0, 20));
+        $eventName = $this->firstString($payload, ['event', 'EVENT']) ?? 'unknown_event';
+        $this->logger->log(new ExternalOperationLogEntry(
+            'bitrix',
+            IntegrationDirection::INBOUND,
+            $webhookCorrelationId,
+            $eventName,
+            'webhook_received',
+            [
+                'has_data' => isset($payload['data']) || isset($payload['DATA']) ? 1 : 0,
+            ],
+        ));
+
+        try {
+            $messages = $this->validator->validate($payload);
+        } catch (Throwable $exception) {
+            $this->logger->log(new ExternalOperationLogEntry(
+                'bitrix',
+                IntegrationDirection::INBOUND,
+                $webhookCorrelationId,
+                $eventName,
+                'webhook_validation_failed',
+                [
+                    'error' => $exception->getMessage(),
+                ],
+            ));
+            throw $exception;
+        }
+
         $results = [];
         $deliveryAckSent = 0;
 
@@ -108,6 +140,21 @@ final readonly class BitrixOpenLinesWebhookController
             'delivery_ack_total' => $deliveryAckSent,
             'system' => ExternalSystemType::CRM->value,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function firstString(array $payload, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $payload[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
     }
 
     private function resolveDeliveryAckApi(

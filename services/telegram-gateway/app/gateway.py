@@ -477,6 +477,18 @@ class AccountSession:
                     )
                     return
 
+                if self._config.sync_manager_outgoing:
+                    self._append_recent_event(
+                        {
+                            "account_id": self._account.account_id,
+                            "direction": "outgoing_observed",
+                            "chat_id": chat_id,
+                            "external_message_id": message_id,
+                        }
+                    )
+                    self._dispatch_queue.put(message)
+                    return
+
                 self._append_recent_event(
                     {
                         "account_id": self._account.account_id,

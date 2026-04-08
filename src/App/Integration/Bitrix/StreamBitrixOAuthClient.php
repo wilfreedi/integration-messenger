@@ -103,11 +103,33 @@ final class StreamBitrixOAuthClient implements BitrixOAuthClient
                 return $value;
             }
             if (is_string($value) && ctype_digit($value) && $value !== '0') {
-                return (int) $value;
+                $seconds = (int) $value;
+                return $this->normalizeExpiresInSeconds($seconds, time());
+            }
+            if (is_int($value) && $value > 0) {
+                return $this->normalizeExpiresInSeconds($value, time());
             }
         }
 
         return 3600;
+    }
+
+    private function normalizeExpiresInSeconds(int $rawValue, int $nowTimestamp): int
+    {
+        $value = max(1, $rawValue);
+
+        if ($value > 1_000_000_000) {
+            $delta = $value - $nowTimestamp;
+            if ($delta > 0 && $delta <= 86400) {
+                return max(60, $delta);
+            }
+        }
+
+        if ($value > 86400) {
+            return 3600;
+        }
+
+        return $value;
     }
 
     /**
@@ -121,4 +143,3 @@ final class StreamBitrixOAuthClient implements BitrixOAuthClient
         return isset($matches[1]) ? (int) $matches[1] : 500;
     }
 }
-

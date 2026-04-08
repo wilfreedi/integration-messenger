@@ -448,6 +448,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
   const bindingPortalDomainInput = document.getElementById("bindingPortalDomain");
   const portalDomainsList = document.getElementById("portalDomainsList");
   const logoutBtn = document.getElementById("logoutBtn");
+  const bitrixContextQuery = buildBitrixContextQuery();
 
   function setStatus(message, isError = false) {
     statusBox.textContent = message;
@@ -527,15 +528,54 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
     return headers;
   }
 
+  function buildBitrixContextQuery() {
+    const source = new URLSearchParams(window.location.search || "");
+    const output = new URLSearchParams();
+    const keys = [
+      "token",
+      "DOMAIN",
+      "domain",
+      "AUTH_ID",
+      "access_token",
+      "REFRESH_ID",
+      "refresh_token",
+      "APP_SID",
+      "application_token",
+      "MEMBER_ID",
+      "member_id",
+      "CLIENT_ENDPOINT",
+      "client_endpoint",
+      "AUTH_EXPIRES",
+      "expires",
+      "expires_in"
+    ];
+    for (const key of keys) {
+      const value = source.get(key);
+      if (value && value.trim() !== "") {
+        output.set(key, value.trim());
+      }
+    }
+    return output.toString();
+  }
+
+  function withBitrixContext(path) {
+    if (!bitrixContextQuery) {
+      return path;
+    }
+    const separator = path.includes("?") ? "&" : "?";
+    return path + separator + bitrixContextQuery;
+  }
+
   async function request(path, options = {}) {
     const base = apiBaseInput.value.trim().replace(/\/+$/, "");
     if (!base) {
       throw new Error("Укажи API base URL.");
     }
+    const pathWithContext = withBitrixContext(path);
 
     let response;
     try {
-      response = await fetch(base + path, {
+      response = await fetch(base + pathWithContext, {
         headers: authHeaders(),
         ...options
       });
@@ -543,7 +583,7 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
       throw new Error(
         "Ошибка сети при обращении к " +
         base +
-        path +
+        pathWithContext +
         ". Проверь API base URL, HTTPS и доступность домена."
       );
     }
@@ -561,14 +601,15 @@ https://&lt;SITE_DOMAIN&gt;/bitrix/app?DOMAIN=mycompany.bitrix24.ru&AUTH_ID=...&
 
   async function requestWithoutAuth(path, options = {}) {
     const base = window.location.origin.replace(/\/+$/, "");
+    const pathWithContext = withBitrixContext(path);
     let response;
     try {
-      response = await fetch(base + path, options);
+      response = await fetch(base + pathWithContext, options);
     } catch (_error) {
       throw new Error(
         "Ошибка сети при обращении к " +
         base +
-        path +
+        pathWithContext +
         ". Проверь HTTPS и доступность домена."
       );
     }

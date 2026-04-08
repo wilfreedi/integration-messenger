@@ -92,16 +92,20 @@ try {
     }
 
     if (requiresPanelAuthentication($method, $path)) {
-        $allowBitrixAppBootstrap = isPanelHtmlPath($path) && hasBitrixPanelBootstrapSession();
+        $providedToken = providedIntegrationToken();
+        $allowBitrixAppBootstrap = hasBitrixPanelBootstrapSession()
+            || hasValidBitrixBootstrapToken($container->config()->bitrixWebhookToken, $providedToken)
+            || isBitrixAppContextRequest();
         $allowByManagementToken = hasValidManagementAccess(
             $container->config()->bitrixManagementToken,
-            providedIntegrationToken(),
+            $providedToken,
         );
 
-        if (!$panelAccess->isAuthenticated($clientIp, $userAgent)) {
-            if ($allowBitrixAppBootstrap || $allowByManagementToken) {
-                // Allowed for Bitrix app embed flow or explicit management token access.
-            } else {
+        if (
+            !$panelAccess->isAuthenticated($clientIp, $userAgent)
+            && !$allowBitrixAppBootstrap
+            && !$allowByManagementToken
+        ) {
             if (isPanelHtmlPath($path)) {
                 redirectToPanelLogin(currentRequestUri());
             }
@@ -110,7 +114,6 @@ try {
                 'error' => 'auth_required',
                 'message' => 'Panel authentication required.',
             ], 401);
-            }
         }
     }
 
@@ -136,6 +139,15 @@ try {
                     ),
                     202,
                 );
+            }
+
+            $installPayload = normalizeBitrixInstallPayload($payload);
+            if ($installPayload !== null) {
+                try {
+                    $container->bitrixAppInstallController()->handle($installPayload);
+                } catch (Throwable) {
+                    // Do not break app-open flow if install payload has partial/invalid fields.
+                }
             }
         }
 
@@ -549,10 +561,6 @@ function isBitrixAppContextRequest(): bool
         return false;
     }
 
-    if (str_contains($domain, '.')) {
-        return true;
-    }
-
     $hasAuthMarker = scalarParam($_GET['AUTH_ID'] ?? null) !== null
         || scalarParam($_GET['access_token'] ?? null) !== null
         || scalarParam($_GET['APP_SID'] ?? null) !== null
@@ -572,10 +580,19 @@ function isBitrixAppContextRequest(): bool
             || scalarParam($auth['application_token'] ?? null) !== null;
     }
 
-    return false;
+    return $hasAuthMarker;
 }
 
 function hasValidManagementAccess(string $expectedToken, string $providedToken): bool
+{
+    if ($expectedToken === '') {
+        return false;
+    }
+
+    return $providedToken !== '' && hash_equals($expectedToken, $providedToken);
+}
+
+function hasValidBitrixBootstrapToken(string $expectedToken, string $providedToken): bool
 {
     if ($expectedToken === '') {
         return false;
@@ -658,6 +675,78 @@ function isBitrixRefererContext(): bool
     }
 
     return false;
+}
+
+/**
+ * @param array<string, mixed> $payload
+ * @return array<string, mixed>|null
+ */
+function normalizeBitrixInstallPayload(array $payload): ?array
+{
+    $authPayload = [];
+
+    $auth = $payload['auth'] ?? null;
+    if (is_array($auth)) {
+        foreach ([
+            'domain',
+            'member_id',
+            'access_token',
+            'refresh_token',
+            'application_token',
+            'client_endpoint',
+            'scope',
+            'expires',
+            'expires_in',
+            'client_id',
+            'client_secret',
+            'server_endpoint',
+        ] as $key) {
+            $value = scalarParam($auth[$key] ?? null);
+            if ($value !== null && $value !== '') {
+                $authPayload[$key] = $value;
+            }
+        }
+    }
+
+    $mapping = [
+        'domain' => ['domain', 'DOMAIN'],
+        'member_id' => ['member_id', 'MEMBER_ID'],
+        'access_token' => ['access_token', 'AUTH_ID'],
+        'refresh_token' => ['refresh_token', 'REFRESH_ID'],
+        'application_token' => ['application_token', 'APP_SID'],
+        'client_endpoint' => ['client_endpoint', 'CLIENT_ENDPOINT'],
+        'scope' => ['scope', 'SCOPE'],
+        'expires' => ['expires', 'AUTH_EXPIRES'],
+        'expires_in' => ['expires_in', 'AUTH_EXPIRES'],
+        'client_id' => ['client_id', 'CLIENT_ID'],
+        'client_secret' => ['client_secret', 'CLIENT_SECRET'],
+        'server_endpoint' => ['server_endpoint', 'SERVER_ENDPOINT'],
+    ];
+
+    foreach ($mapping as $target => $sources) {
+        if (isset($authPayload[$target])) {
+            continue;
+        }
+
+        foreach ($sources as $source) {
+            $value = scalarParam($payload[$source] ?? null);
+            if ($value !== null && $value !== '') {
+                $authPayload[$target] = $value;
+                break;
+            }
+        }
+    }
+
+    $required = ['domain', 'access_token', 'refresh_token', 'application_token'];
+    foreach ($required as $field) {
+        if (!isset($authPayload[$field]) || !is_string($authPayload[$field]) || $authPayload[$field] === '') {
+            return null;
+        }
+    }
+
+    return [
+        'auth' => $authPayload,
+    ];
 }
 
 /**

@@ -50,11 +50,11 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
         Assertions::assertSame('chat_sync', $dataSetPayload['CONNECTOR'] ?? null);
         Assertions::assertSame(192, $dataSetPayload['LINE'] ?? null);
         Assertions::assertSame(
-            'https://sync.example.com/bitrix/app',
+            'https://sync.example.com/api/webhooks/bitrix/open-lines?token=secret',
             $dataSetPayload['DATA']['URL'] ?? null,
         );
         Assertions::assertSame(
-            'https://sync.example.com/bitrix/app',
+            'https://sync.example.com/api/webhooks/bitrix/open-lines?token=secret',
             $dataSetPayload['DATA']['URL_IM'] ?? null,
         );
     }

@@ -425,7 +425,7 @@ final readonly class BitrixIntegrationCheckController
                 'response_preview' => $this->shortPreview($response),
             ];
         } catch (RuntimeException $exception) {
-            $message = $exception->getMessage();
+            $message = (string) $exception->getMessage();
             $lower = strtolower($message);
 
             $permissionLimited = str_contains($lower, 'insufficient_scope')

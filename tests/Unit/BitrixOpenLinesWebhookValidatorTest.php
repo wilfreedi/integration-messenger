@@ -15,6 +15,7 @@ final class BitrixOpenLinesWebhookValidatorTest
         self::itParsesBitrixOpenLinesPayloadToCommands();
         self::itParsesMessagesRootShape();
         self::itParsesStringifiedDataRoot();
+        self::itParsesFieldsMessagesShape();
     }
 
     private static function itParsesBitrixOpenLinesPayloadToCommands(): void
@@ -112,5 +113,31 @@ final class BitrixOpenLinesWebhookValidatorTest
         Assertions::assertCount(1, $messages);
         Assertions::assertSame('conversation-333', $messages[0]->command->externalThreadId);
         Assertions::assertSame('bitrix-msg-333', $messages[0]->command->externalMessageId);
+    }
+
+    private static function itParsesFieldsMessagesShape(): void
+    {
+        $validator = new BitrixOpenLinesWebhookValidator(ChannelProvider::TELEGRAM);
+
+        $messages = $validator->validate([
+            'event' => 'OnImConnectorMessageAdd',
+            'data' => [
+                'FIELDS' => [
+                    'MESSAGES' => [
+                        [
+                            'chat_id' => 'conversation-77',
+                            'message_id' => 'im-77',
+                            'text' => 'fields shape',
+                            'date' => '1775650525',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Assertions::assertCount(1, $messages);
+        Assertions::assertSame('conversation-77', $messages[0]->command->externalThreadId);
+        Assertions::assertSame('im-77', $messages[0]->command->externalMessageId);
+        Assertions::assertSame('fields shape', $messages[0]->command->body);
     }
 }

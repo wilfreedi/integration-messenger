@@ -39,7 +39,13 @@ final readonly class BitrixOpenLinesWebhookValidator
 
             $externalThreadId = $this->firstString(
                 $item,
-                [['chat', 'id'], ['im', 'chat_id'], ['im', 'chat', 'id']]
+                [
+                    ['chat', 'id'],
+                    ['im', 'chat_id'],
+                    ['im', 'chat', 'id'],
+                    ['chat_id'],
+                    ['CHAT_ID'],
+                ]
             );
 
             if ($externalThreadId === null || $externalThreadId === '') {
@@ -49,7 +55,16 @@ final readonly class BitrixOpenLinesWebhookValidator
             $crmExternalMessageId = $this->messageId($item, $index);
             $imMessageId = $this->firstString($item, [['im', 'message_id']]);
             $imChatId = $this->firstString($item, [['im', 'chat_id'], ['im', 'chat', 'id']]);
-            $body = $this->firstString($item, [['message', 'text'], ['message', 'message']]) ?? '';
+            $body = $this->firstString(
+                $item,
+                [
+                    ['message', 'text'],
+                    ['message', 'message'],
+                    ['text'],
+                    ['message_text'],
+                    ['MESSAGE'],
+                ],
+            ) ?? '';
             if ($body === '') {
                 $body = '[empty_message]';
             }
@@ -113,14 +128,24 @@ final readonly class BitrixOpenLinesWebhookValidator
      */
     private function items(array $dataRoot): array
     {
-        foreach (['DATA', 'MESSAGES'] as $key) {
-            $data = $dataRoot[$key] ?? null;
+        foreach ([
+            ['DATA'],
+            ['MESSAGES'],
+            ['FIELDS', 'DATA'],
+            ['FIELDS', 'MESSAGES'],
+            ['FIELDS'],
+        ] as $path) {
+            $data = $this->valueByPath($dataRoot, $path);
             if (!is_array($data)) {
                 continue;
             }
 
-            if ($this->isAssoc($data)) {
+            if ($this->looksLikeMessageItem($data)) {
                 return [$data];
+            }
+
+            if ($this->isAssoc($data)) {
+                continue;
             }
 
             return array_values($data);
@@ -156,6 +181,11 @@ final readonly class BitrixOpenLinesWebhookValidator
             return $imMessageId;
         }
 
+        $fallback = $this->firstString($item, [['message_id'], ['MESSAGE_ID'], ['id'], ['ID']]);
+        if ($fallback !== null && $fallback !== '') {
+            return $fallback;
+        }
+
         return sprintf('bitrix-message-%d-%d', time(), $index);
     }
 
@@ -164,9 +194,22 @@ final readonly class BitrixOpenLinesWebhookValidator
      */
     private function occurredAt(array $item): DateTimeImmutable
     {
-        $value = $this->firstString($item, [['message', 'date_create'], ['message', 'date']]);
+        $value = $this->firstString($item, [
+            ['message', 'date_create'],
+            ['message', 'date'],
+            ['date_create'],
+            ['date'],
+        ]);
         if ($value === null || $value === '') {
             return new DateTimeImmutable();
+        }
+
+        if (ctype_digit($value)) {
+            try {
+                return (new DateTimeImmutable())->setTimestamp((int) $value);
+            } catch (\Throwable) {
+                return new DateTimeImmutable();
+            }
         }
 
         try {
@@ -218,5 +261,19 @@ final readonly class BitrixOpenLinesWebhookValidator
     private function isAssoc(array $value): bool
     {
         return array_keys($value) !== range(0, count($value) - 1);
+    }
+
+    /**
+     * @param array<int|string, mixed> $item
+     */
+    private function looksLikeMessageItem(array $item): bool
+    {
+        return $this->firstString($item, [
+            ['chat', 'id'],
+            ['im', 'chat_id'],
+            ['im', 'chat', 'id'],
+            ['chat_id'],
+            ['CHAT_ID'],
+        ]) !== null;
     }
 }
