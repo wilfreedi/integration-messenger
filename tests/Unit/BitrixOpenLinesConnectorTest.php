@@ -106,6 +106,8 @@ final class BitrixOpenLinesConnectorTest
         Assertions::assertSame('chat_sync_a', $routingClient->lastPayload['CONNECTOR'] ?? null);
         Assertions::assertSame('77', $routingClient->lastPayload['LINE'] ?? null);
         Assertions::assertSame('oauth-access-token', $routingClient->lastPayload['auth'] ?? null);
+        Assertions::assertSame('telegram-user-7', $routingClient->lastPayload['MESSAGES'][0]['chat']['id'] ?? null);
+        Assertions::assertSame('telegram-user-7', $routingClient->lastPayload['MESSAGES'][0]['user']['id'] ?? null);
     }
 
     private static function request(string $managerAccountExternalId): SendCrmMessageRequest
@@ -177,6 +179,7 @@ final class BitrixOpenLinesConnectorTest
 
         Assertions::assertSame('bitrix-routing-message-3', $result->externalMessageId);
         Assertions::assertSame('fresh-token', $routingClient->lastPayload['auth'] ?? null);
+        Assertions::assertSame('telegram-user-7', $routingClient->lastPayload['MESSAGES'][0]['chat']['id'] ?? null);
     }
 }
 
