@@ -163,7 +163,8 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
             return;
         }
 
-        $eventName = 'OnImConnectorMessageAdd';
+        $primaryEventName = 'OnSendMessageCustom';
+        $fallbackEventNames = ['OnImConnectorMessageAdd'];
         $canReadEvents = false;
         $eventsResult = null;
 
@@ -179,37 +180,49 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
             $canReadEvents = false;
         }
 
-        if ($canReadEvents && is_array($eventsResult) && $this->hasEventBinding($eventsResult, $eventName, $this->webhookUrl)) {
-            return;
+        if ($canReadEvents && is_array($eventsResult)) {
+            if ($this->hasEventBinding($eventsResult, $primaryEventName, $this->webhookUrl)) {
+                return;
+            }
         }
 
-        $attempts = [
-            [
-                'EVENT_NAME' => $eventName,
-                'HANDLER' => $this->webhookUrl,
-            ],
-            [
-                'event' => $eventName,
-                'handler' => $this->webhookUrl,
-            ],
-        ];
-
-        foreach ($attempts as $payload) {
-            try {
-                $this->restClient->call(
-                    $baseUrl,
-                    'event.bind',
-                    $this->withAuth($payload, $authToken),
-                );
+        foreach (array_merge([$primaryEventName], $fallbackEventNames) as $eventName) {
+            if (
+                $canReadEvents
+                && is_array($eventsResult)
+                && $this->hasEventBinding($eventsResult, $eventName, $this->webhookUrl)
+            ) {
                 return;
-            } catch (RuntimeException $exception) {
-                $message = strtolower($exception->getMessage());
-                if (
-                    str_contains($message, 'already')
-                    || str_contains($message, 'существует')
-                    || str_contains($message, 'registered')
-                ) {
+            }
+
+            $attempts = [
+                [
+                    'EVENT_NAME' => $eventName,
+                    'HANDLER' => $this->webhookUrl,
+                ],
+                [
+                    'event' => $eventName,
+                    'handler' => $this->webhookUrl,
+                ],
+            ];
+
+            foreach ($attempts as $payload) {
+                try {
+                    $this->restClient->call(
+                        $baseUrl,
+                        'event.bind',
+                        $this->withAuth($payload, $authToken),
+                    );
                     return;
+                } catch (RuntimeException $exception) {
+                    $message = strtolower($exception->getMessage());
+                    if (
+                        str_contains($message, 'already')
+                        || str_contains($message, 'существует')
+                        || str_contains($message, 'registered')
+                    ) {
+                        return;
+                    }
                 }
             }
         }

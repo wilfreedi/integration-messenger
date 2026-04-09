@@ -171,8 +171,12 @@ try {
         $json->respond($container->crmMessageWebhookController()->handle($json->decodeRequestBody()), 202);
     }
 
-    if ($method === 'POST' && $path === '/api/webhooks/bitrix/open-lines') {
+    if (($method === 'POST' || $method === 'GET') && $path === '/api/webhooks/bitrix/open-lines') {
         $payload = decodeInboundPayload();
+        if ($method === 'GET' && $payload === [] && $_GET !== []) {
+            /** @var array<string, mixed> $payload */
+            $payload = $_GET;
+        }
         $token = resolveBitrixWebhookToken($payload);
         $json->respond(
             $container->bitrixOpenLinesWebhookController()->handle(

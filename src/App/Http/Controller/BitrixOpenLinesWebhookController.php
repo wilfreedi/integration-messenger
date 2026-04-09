@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ChatSync\App\Http\Controller;
 
 use ChatSync\App\Http\Validator\BitrixOpenLinesWebhookValidator;
+use ChatSync\App\Integration\Bitrix\BitrixPortalInstallRepository;
 use ChatSync\App\Integration\Bitrix\BitrixRoutingResolver;
 use ChatSync\App\Integration\Bitrix\BitrixTokenManager;
 use ChatSync\App\Integration\Connector\BitrixOpenLinesApi;
@@ -25,6 +26,7 @@ final readonly class BitrixOpenLinesWebhookController
         private SyncOutboundCrmMessageHandler $handler,
         private MessageMappingLookup $messageLookup,
         private BitrixRoutingResolver $routingResolver,
+        private BitrixPortalInstallRepository $portalInstallRepository,
         private BitrixTokenManager $tokenManager,
         private BitrixRestClient $bitrixRestClient,
         private ExternalOperationLogger $logger,
@@ -41,7 +43,11 @@ final readonly class BitrixOpenLinesWebhookController
         $webhookCorrelationId = sprintf('bitrix-webhook:%s', substr(sha1(json_encode($payload) ?: ''), 0, 20));
         $eventName = $this->firstString($payload, ['event', 'EVENT']) ?? 'unknown_event';
 
-        if ($this->webhookToken !== '' && !hash_equals($this->webhookToken, $token)) {
+        if (
+            $this->webhookToken !== ''
+            && !hash_equals($this->webhookToken, $token)
+            && !$this->isTrustedBitrixPayload($payload)
+        ) {
             $this->logger->log(new ExternalOperationLogEntry(
                 'bitrix',
                 IntegrationDirection::INBOUND,
@@ -160,6 +166,73 @@ final readonly class BitrixOpenLinesWebhookController
     {
         foreach ($keys as $key) {
             $value = $payload[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function isTrustedBitrixPayload(array $payload): bool
+    {
+        $domain = $this->extractNestedString(
+            $payload,
+            [
+                ['DOMAIN'],
+                ['domain'],
+                ['auth', 'domain'],
+                ['data', 'DOMAIN'],
+                ['data', 'domain'],
+            ],
+        );
+        if ($domain === null || $domain === '') {
+            return false;
+        }
+
+        $install = $this->portalInstallRepository->findByPortalDomain(strtolower($domain));
+        if ($install === null) {
+            return false;
+        }
+
+        $applicationToken = $this->extractNestedString(
+            $payload,
+            [
+                ['APP_SID'],
+                ['application_token'],
+                ['auth', 'application_token'],
+                ['auth', 'APP_SID'],
+                ['data', 'APP_SID'],
+                ['data', 'application_token'],
+            ],
+        );
+
+        if ($applicationToken === null || $applicationToken === '') {
+            return false;
+        }
+
+        return hash_equals($install->applicationToken, $applicationToken);
+    }
+
+    /**
+     * @param array<string, mixed> $root
+     * @param list<list<int|string>> $paths
+     */
+    private function extractNestedString(array $root, array $paths): ?string
+    {
+        foreach ($paths as $path) {
+            $value = $root;
+            foreach ($path as $part) {
+                if (!is_array($value) || !array_key_exists($part, $value)) {
+                    $value = null;
+                    break;
+                }
+                $value = $value[$part];
+            }
+
             if (is_string($value) && trim($value) !== '') {
                 return trim($value);
             }

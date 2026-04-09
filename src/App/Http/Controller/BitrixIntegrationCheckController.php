@@ -366,15 +366,17 @@ final readonly class BitrixIntegrationCheckController
         }
 
         return [
-            'status' => $this->hasEventBinding(
-                $result,
-                'OnImConnectorMessageAdd',
-            ) ? 'ok' : 'unknown',
+            'status' => $this->hasEventBinding($result, 'OnSendMessageCustom')
+                || $this->hasEventBinding($result, 'OnImConnectorMessageAdd')
+                ? 'ok'
+                : 'unknown',
             'ok' => true,
             'method' => 'event.get',
-            'message' => $this->hasEventBinding($result, 'OnImConnectorMessageAdd')
-                ? 'Событие OnImConnectorMessageAdd найдено в bindings.'
-                : 'Событие OnImConnectorMessageAdd в bindings не найдено.',
+            'message' => $this->hasEventBinding($result, 'OnSendMessageCustom')
+                ? 'Событие OnSendMessageCustom найдено в bindings.'
+                : ($this->hasEventBinding($result, 'OnImConnectorMessageAdd')
+                    ? 'Событие OnImConnectorMessageAdd найдено в bindings (fallback).'
+                    : 'События OnSendMessageCustom/OnImConnectorMessageAdd в bindings не найдены.'),
             'response_preview' => $this->shortPreview($response),
         ];
     }

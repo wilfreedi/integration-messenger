@@ -196,6 +196,7 @@ final class ApplicationContainer
             ),
             new MessageMappingLookup($this->pdo()),
             new PdoManagerBitrixBindingRepository($this->pdo()),
+            new PdoBitrixPortalInstallRepository($this->pdo()),
             $this->bitrixTokenManager(),
             $this->bitrixRestClient(),
             new PdoExternalOperationLogger($this->pdo(), $this->idGenerator(), $this->clock()),
