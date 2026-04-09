@@ -48,8 +48,8 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
 
         $eventBindPayload = $client->payloadByMethod['event.bind'][0] ?? [];
         Assertions::assertSame(
-            'OnOpenLineMessageAdd',
-            $eventBindPayload['EVENT_NAME'] ?? ($eventBindPayload['event'] ?? null),
+            'ONIMCONNECTORMESSAGEADD',
+            $eventBindPayload['EVENT'] ?? ($eventBindPayload['event'] ?? null),
         );
 
         $dataSetPayload = $client->payloadByMethod['imconnector.connector.data.set'][0] ?? [];
@@ -111,8 +111,8 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
 
         $eventBindPayload = $client->payloadByMethod['event.bind'][0] ?? [];
         Assertions::assertSame(
-            'OnOpenLineMessageAdd',
-            $eventBindPayload['EVENT_NAME'] ?? ($eventBindPayload['event'] ?? null),
+            'ONIMCONNECTORMESSAGEADD',
+            $eventBindPayload['EVENT'] ?? ($eventBindPayload['event'] ?? null),
         );
     }
 }

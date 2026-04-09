@@ -163,8 +163,8 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
             return;
         }
 
-        $primaryEventName = 'OnOpenLineMessageAdd';
-        $fallbackEventNames = ['OnSendMessageCustom', 'OnImConnectorMessageAdd'];
+        $primaryEventName = 'ONIMCONNECTORMESSAGEADD';
+        $fallbackEventNames = ['OnImConnectorMessageAdd', 'ONOPENLINEMESSAGEADD', 'OnOpenLineMessageAdd', 'OnSendMessageCustom'];
         $canReadEvents = false;
         $eventsResult = null;
 
@@ -197,7 +197,7 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
 
             $attempts = [
                 [
-                    'EVENT_NAME' => $eventName,
+                    'EVENT' => $eventName,
                     'HANDLER' => $this->webhookUrl,
                 ],
                 [
