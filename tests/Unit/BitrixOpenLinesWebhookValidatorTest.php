@@ -16,6 +16,8 @@ final class BitrixOpenLinesWebhookValidatorTest
         self::itParsesMessagesRootShape();
         self::itParsesStringifiedDataRoot();
         self::itParsesFieldsMessagesShape();
+        self::itParsesOnOpenLineMessageAddPayload();
+        self::itSkipsOnOpenLineMessageAddFromExternalClient();
     }
 
     private static function itParsesBitrixOpenLinesPayloadToCommands(): void
@@ -139,5 +141,70 @@ final class BitrixOpenLinesWebhookValidatorTest
         Assertions::assertSame('conversation-77', $messages[0]->command->externalThreadId);
         Assertions::assertSame('im-77', $messages[0]->command->externalMessageId);
         Assertions::assertSame('fields shape', $messages[0]->command->body);
+    }
+
+    private static function itParsesOnOpenLineMessageAddPayload(): void
+    {
+        $validator = new BitrixOpenLinesWebhookValidator(ChannelProvider::TELEGRAM);
+
+        $messages = $validator->validate([
+            'event' => 'ONOPENLINEMESSAGEADD',
+            'eventId' => 1024,
+            'data' => [
+                'DATA' => [
+                    [
+                        'connector' => [
+                            'connector_id' => 'chat_sync',
+                            'line_id' => 192,
+                            'chat_id' => 10587,
+                            'user_id' => '479493406',
+                        ],
+                        'chat' => [
+                            'id' => 10585,
+                        ],
+                        'message' => [
+                            'id' => 80964,
+                            'text' => 'Ответ оператора',
+                            'system' => 'N',
+                            'user_id' => 17,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Assertions::assertCount(1, $messages);
+        Assertions::assertSame('479493406', $messages[0]->command->externalThreadId);
+        Assertions::assertSame('80964', $messages[0]->command->externalMessageId);
+        Assertions::assertSame('80964', $messages[0]->imMessageId);
+        Assertions::assertSame('10587', $messages[0]->imChatId);
+    }
+
+    private static function itSkipsOnOpenLineMessageAddFromExternalClient(): void
+    {
+        $validator = new BitrixOpenLinesWebhookValidator(ChannelProvider::TELEGRAM);
+
+        $messages = $validator->validate([
+            'event' => 'ONOPENLINEMESSAGEADD',
+            'eventId' => 2048,
+            'data' => [
+                'DATA' => [
+                    [
+                        'connector' => [
+                            'chat_id' => 10587,
+                            'user_id' => '479493406',
+                        ],
+                        'message' => [
+                            'id' => 80965,
+                            'text' => 'Сообщение клиента',
+                            'system' => 'N',
+                            'user_id' => '479493406',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Assertions::assertCount(0, $messages);
     }
 }

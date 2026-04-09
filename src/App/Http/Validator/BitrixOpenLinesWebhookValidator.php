@@ -23,6 +23,9 @@ final readonly class BitrixOpenLinesWebhookValidator
      */
     public function validate(array $payload): array
     {
+        $eventName = strtoupper($this->firstString($payload, [['event'], ['EVENT']]) ?? '');
+        $sourceEventId = $this->firstString($payload, [['eventId'], ['EVENT_ID'], ['event_id']]);
+
         $dataRoot = $this->dataRoot($payload);
         $items = $this->items($dataRoot);
 
@@ -37,24 +40,31 @@ final readonly class BitrixOpenLinesWebhookValidator
                 continue;
             }
 
-            $externalThreadId = $this->firstString(
-                $item,
-                [
-                    ['chat', 'id'],
-                    ['im', 'chat_id'],
-                    ['im', 'chat', 'id'],
-                    ['chat_id'],
-                    ['CHAT_ID'],
-                ]
-            );
+            if ($this->shouldSkipItem($item, $eventName)) {
+                continue;
+            }
+
+            $externalThreadId = $this->resolveExternalThreadId($item, $eventName);
 
             if ($externalThreadId === null || $externalThreadId === '') {
                 continue;
             }
 
             $crmExternalMessageId = $this->messageId($item, $index);
-            $imMessageId = $this->firstString($item, [['im', 'message_id']]);
-            $imChatId = $this->firstString($item, [['im', 'chat_id'], ['im', 'chat', 'id']]);
+            $imMessageId = $this->firstString($item, [
+                ['im', 'message_id'],
+                ['im', 'message', 'id'],
+                ['message', 'id'],
+                ['MESSAGE', 'ID'],
+            ]);
+            $imChatId = $this->firstString($item, [
+                ['im', 'chat_id'],
+                ['im', 'chat', 'id'],
+                ['connector', 'chat_id'],
+                ['connector', 'CHAT_ID'],
+                ['chat', 'id'],
+                ['CHAT_ID'],
+            ]);
             $body = $this->firstString(
                 $item,
                 [
@@ -70,10 +80,11 @@ final readonly class BitrixOpenLinesWebhookValidator
             }
 
             $eventId = sprintf(
-                'bitrix-openlines:%s:%s:%d',
-                $externalThreadId,
-                $imMessageId ?? $crmExternalMessageId,
-                $index
+                'bitrix-openlines:%s:%d',
+                $sourceEventId !== null && $sourceEventId !== ''
+                    ? $sourceEventId
+                    : ($externalThreadId . ':' . ($imMessageId ?? $crmExternalMessageId)),
+                $index,
             );
 
             $messages[] = new BitrixOpenLinesOperatorMessage(
@@ -92,11 +103,76 @@ final readonly class BitrixOpenLinesWebhookValidator
             );
         }
 
-        if ($messages === []) {
-            throw new InvalidArgumentException('Bitrix webhook items do not contain required chat/message fields.');
+        return $messages;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function resolveExternalThreadId(array $item, string $eventName): ?string
+    {
+        $connectorExternalUserId = $this->firstString($item, [
+            ['connector', 'user_id'],
+            ['connector', 'USER_ID'],
+        ]);
+
+        if ($this->isOpenLineEvent($eventName) && $connectorExternalUserId !== null && $connectorExternalUserId !== '') {
+            return $connectorExternalUserId;
         }
 
-        return $messages;
+        $chatId = $this->firstString(
+            $item,
+            [
+                ['chat', 'id'],
+                ['im', 'chat_id'],
+                ['im', 'chat', 'id'],
+                ['chat_id'],
+                ['CHAT_ID'],
+                ['connector', 'chat_id'],
+                ['connector', 'CHAT_ID'],
+            ]
+        );
+        if ($chatId !== null && $chatId !== '') {
+            return $chatId;
+        }
+
+        return $connectorExternalUserId;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function shouldSkipItem(array $item, string $eventName): bool
+    {
+        $systemFlag = strtoupper($this->firstString(
+            $item,
+            [
+                ['message', 'system'],
+                ['MESSAGE', 'SYSTEM'],
+            ],
+        ) ?? '');
+        if ($systemFlag === 'Y') {
+            return true;
+        }
+
+        if (!$this->isOpenLineEvent($eventName)) {
+            return false;
+        }
+
+        $connectorExternalUserId = $this->firstString($item, [
+            ['connector', 'user_id'],
+            ['connector', 'USER_ID'],
+        ]);
+        $messageUserId = $this->firstString($item, [
+            ['message', 'user_id'],
+            ['MESSAGE', 'USER_ID'],
+        ]);
+
+        return $connectorExternalUserId !== null
+            && $connectorExternalUserId !== ''
+            && $messageUserId !== null
+            && $messageUserId !== ''
+            && $connectorExternalUserId === $messageUserId;
     }
 
     /**
@@ -227,6 +303,9 @@ final readonly class BitrixOpenLinesWebhookValidator
     {
         foreach ($paths as $path) {
             $value = $this->valueByPath($root, $path);
+            if (is_array($value) && isset($value[0])) {
+                $value = $value[0];
+            }
             if (is_string($value) && trim($value) !== '') {
                 return trim($value);
             }
@@ -274,6 +353,21 @@ final readonly class BitrixOpenLinesWebhookValidator
             ['im', 'chat', 'id'],
             ['chat_id'],
             ['CHAT_ID'],
+            ['connector', 'chat_id'],
+            ['connector', 'user_id'],
         ]) !== null;
+    }
+
+    private function isOpenLineEvent(string $eventName): bool
+    {
+        if ($eventName === '') {
+            return false;
+        }
+
+        return in_array($eventName, [
+            'ONOPENLINEMESSAGEADD',
+            'ONOPENLINEMESSAGEUPDATE',
+            'ONOPENLINEMESSAGEDELETE',
+        ], true);
     }
 }

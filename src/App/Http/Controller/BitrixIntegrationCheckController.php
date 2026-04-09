@@ -365,18 +365,23 @@ final readonly class BitrixIntegrationCheckController
             ];
         }
 
+        $hasOpenLineMessageAdd = $this->hasEventBinding($result, 'OnOpenLineMessageAdd');
+        $hasSendMessageCustom = $this->hasEventBinding($result, 'OnSendMessageCustom');
+        $hasImConnectorMessageAdd = $this->hasEventBinding($result, 'OnImConnectorMessageAdd');
+
         return [
-            'status' => $this->hasEventBinding($result, 'OnSendMessageCustom')
-                || $this->hasEventBinding($result, 'OnImConnectorMessageAdd')
+            'status' => ($hasOpenLineMessageAdd || $hasSendMessageCustom || $hasImConnectorMessageAdd)
                 ? 'ok'
                 : 'unknown',
             'ok' => true,
             'method' => 'event.get',
-            'message' => $this->hasEventBinding($result, 'OnSendMessageCustom')
-                ? 'Событие OnSendMessageCustom найдено в bindings.'
-                : ($this->hasEventBinding($result, 'OnImConnectorMessageAdd')
-                    ? 'Событие OnImConnectorMessageAdd найдено в bindings (fallback).'
-                    : 'События OnSendMessageCustom/OnImConnectorMessageAdd в bindings не найдены.'),
+            'message' => $hasOpenLineMessageAdd
+                ? 'Событие OnOpenLineMessageAdd найдено в bindings.'
+                : ($hasSendMessageCustom
+                    ? 'Событие OnSendMessageCustom найдено в bindings.'
+                    : ($hasImConnectorMessageAdd
+                        ? 'Событие OnImConnectorMessageAdd найдено в bindings.'
+                        : 'События OnOpenLineMessageAdd/OnSendMessageCustom/OnImConnectorMessageAdd в bindings не найдены.')),
             'response_preview' => $this->shortPreview($response),
         ];
     }
