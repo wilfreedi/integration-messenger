@@ -34,7 +34,7 @@ try {
     }
 
     $ipStatus = $panelAccess->ipStatus($clientIp);
-    if (($ipStatus['banned'] ?? false) === true) {
+    if (($ipStatus['banned'] ?? false) === true && !isWebhookPublicPath($path, $method)) {
         $json->respond([
             'error' => 'access_denied',
             'message' => 'Access denied for this IP.',
@@ -127,20 +127,24 @@ try {
     }
 
     if (($method === 'GET' || $method === 'POST') && ($path === '/bitrix/app' || $path === '/bitrix/app/')) {
+        $payload = decodeInboundPayload();
+        if ($method === 'GET' && $payload === [] && $_GET !== []) {
+            /** @var array<string, mixed> $payload */
+            $payload = $_GET;
+        }
+        $token = resolveBitrixWebhookToken($payload);
+
+        if (isLikelyBitrixEventPayload($payload)) {
+            $json->respond(
+                $container->bitrixOpenLinesWebhookController()->handle(
+                    $payload,
+                    is_string($token) ? $token : '',
+                ),
+                202,
+            );
+        }
+
         if ($method === 'POST') {
-            $payload = decodeInboundPayload();
-            $token = resolveBitrixWebhookToken($payload);
-
-            if (isLikelyBitrixEventPayload($payload)) {
-                $json->respond(
-                    $container->bitrixOpenLinesWebhookController()->handle(
-                        $payload,
-                        is_string($token) ? $token : '',
-                    ),
-                    202,
-                );
-            }
-
             $installPayload = normalizeBitrixInstallPayload($payload);
             if ($installPayload !== null) {
                 try {
@@ -824,4 +828,24 @@ function resolveBitrixWebhookToken(array $payload): string
     }
 
     return '';
+}
+
+function isWebhookPublicPath(string $path, string $method): bool
+{
+    $method = strtoupper($method);
+
+    if ($method === 'POST' && $path === '/api/webhooks/channel-message') {
+        return true;
+    }
+    if ($method === 'POST' && $path === '/api/webhooks/crm-message') {
+        return true;
+    }
+    if ($method === 'POST' && $path === '/api/webhooks/bitrix/open-lines') {
+        return true;
+    }
+    if (($method === 'POST' || $method === 'GET') && ($path === '/bitrix/app' || $path === '/bitrix/app/')) {
+        return true;
+    }
+
+    return false;
 }

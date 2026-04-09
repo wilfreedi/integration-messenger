@@ -229,6 +229,7 @@ final readonly class BitrixIntegrationCheckController
         $configured = $this->toBool($result['CONFIGURED'] ?? null);
         $active = $this->toBool($result['ACTIVE'] ?? ($result['STATUS'] ?? null));
         $connectorDataProbe = $this->probeConnectorData($route, $connectorId, $lineId);
+        $eventBindingProbe = $this->probeEventBinding($route);
 
         try {
             $this->connectorLifecycle->ensure(
@@ -266,6 +267,7 @@ final readonly class BitrixIntegrationCheckController
                     : 'Автонастройка выполнена, но статус коннектора остался неготов.',
                 'response_preview' => $this->shortPreview($after),
                 'connector_data' => $connectorDataProbe,
+                'event_binding' => $eventBindingProbe,
             ];
         } catch (RuntimeException $exception) {
             return [
@@ -279,6 +281,7 @@ final readonly class BitrixIntegrationCheckController
                 'details' => $exception->getMessage(),
                 'response_preview' => $this->shortPreview($response),
                 'connector_data' => $connectorDataProbe,
+                'event_binding' => $eventBindingProbe,
             ];
         }
     }
@@ -328,6 +331,52 @@ final readonly class BitrixIntegrationCheckController
                 'details' => $exception->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function probeEventBinding(BitrixRoutingContext $route): array
+    {
+        try {
+            $response = $this->restClient->call(
+                $route->restBaseUrl,
+                'event.get',
+                $this->withAuth([], $route->accessToken),
+            );
+        } catch (RuntimeException $exception) {
+            return [
+                'status' => 'failed',
+                'ok' => false,
+                'method' => 'event.get',
+                'message' => 'Не удалось получить список событий event.get.',
+                'details' => $exception->getMessage(),
+            ];
+        }
+
+        $result = $response['result'] ?? null;
+        if (!is_array($result)) {
+            return [
+                'status' => 'unknown',
+                'ok' => true,
+                'method' => 'event.get',
+                'message' => 'event.get вернул нетипичный payload.',
+                'response_preview' => $this->shortPreview($response),
+            ];
+        }
+
+        return [
+            'status' => $this->hasEventBinding(
+                $result,
+                'OnImConnectorMessageAdd',
+            ) ? 'ok' : 'unknown',
+            'ok' => true,
+            'method' => 'event.get',
+            'message' => $this->hasEventBinding($result, 'OnImConnectorMessageAdd')
+                ? 'Событие OnImConnectorMessageAdd найдено в bindings.'
+                : 'Событие OnImConnectorMessageAdd в bindings не найдено.',
+            'response_preview' => $this->shortPreview($response),
+        ];
     }
 
     /**
@@ -799,5 +848,28 @@ final readonly class BitrixIntegrationCheckController
         }
 
         return null;
+    }
+
+    /**
+     * @param array<int|string, mixed> $root
+     */
+    private function hasEventBinding(array $root, string $eventName): bool
+    {
+        foreach ($root as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $name = $item['EVENT_NAME'] ?? $item['event'] ?? null;
+            if (is_string($name) && strcasecmp(trim($name), $eventName) === 0) {
+                return true;
+            }
+
+            if ($this->hasEventBinding($item, $eventName)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

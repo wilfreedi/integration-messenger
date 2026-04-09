@@ -164,6 +164,7 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
         }
 
         $eventName = 'OnImConnectorMessageAdd';
+        $canReadEvents = false;
         $eventsResult = null;
 
         try {
@@ -173,39 +174,43 @@ final readonly class RestBitrixOpenLinesConnectorLifecycle implements BitrixOpen
                 $this->withAuth([], $authToken),
             );
             $eventsResult = $eventsResponse['result'] ?? null;
+            $canReadEvents = true;
         } catch (RuntimeException) {
+            $canReadEvents = false;
+        }
+
+        if ($canReadEvents && is_array($eventsResult) && $this->hasEventBinding($eventsResult, $eventName, $this->webhookUrl)) {
             return;
         }
 
-        if (!is_array($eventsResult)) {
-            return;
-        }
+        $attempts = [
+            [
+                'EVENT_NAME' => $eventName,
+                'HANDLER' => $this->webhookUrl,
+            ],
+            [
+                'event' => $eventName,
+                'handler' => $this->webhookUrl,
+            ],
+        ];
 
-        if ($this->hasEventBinding($eventsResult, $eventName, $this->webhookUrl)) {
-            return;
-        }
-
-        try {
-            $this->restClient->call(
-                $baseUrl,
-                'event.bind',
-                $this->withAuth([
-                    'EVENT_NAME' => $eventName,
-                    'HANDLER' => $this->webhookUrl,
-                ], $authToken),
-            );
-        } catch (RuntimeException $firstException) {
+        foreach ($attempts as $payload) {
             try {
                 $this->restClient->call(
                     $baseUrl,
                     'event.bind',
-                    $this->withAuth([
-                        'event' => $eventName,
-                        'handler' => $this->webhookUrl,
-                    ], $authToken),
+                    $this->withAuth($payload, $authToken),
                 );
-            } catch (RuntimeException) {
                 return;
+            } catch (RuntimeException $exception) {
+                $message = strtolower($exception->getMessage());
+                if (
+                    str_contains($message, 'already')
+                    || str_contains($message, 'существует')
+                    || str_contains($message, 'registered')
+                ) {
+                    return;
+                }
             }
         }
     }

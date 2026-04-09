@@ -42,7 +42,7 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
         );
 
         Assertions::assertSame(
-            ['imconnector.status', 'imconnector.connector.data.set', 'event.get', 'imconnector.status'],
+            ['imconnector.status', 'imconnector.connector.data.set', 'event.get', 'event.bind', 'imconnector.status'],
             $client->calledMethods,
         );
 
@@ -97,6 +97,7 @@ final class RestBitrixOpenLinesConnectorLifecycleTest
                 'imconnector.activate',
                 'imconnector.connector.data.set',
                 'event.get',
+                'event.bind',
                 'imconnector.status',
             ],
             $client->calledMethods,
