@@ -46,6 +46,6 @@ class GatewayConfig:
             tdlib_db_dir=os.getenv("TELEGRAM_GATEWAY_TDLIB_DB_DIR", "/data/tdlib").strip(),
             tdlib_files_dir=os.getenv("TELEGRAM_GATEWAY_TDLIB_FILES_DIR", "/data/files").strip(),
             log_level=os.getenv("TELEGRAM_GATEWAY_LOG_LEVEL", "INFO").strip() or "INFO",
-            sync_manager_outgoing=os.getenv("TELEGRAM_GATEWAY_SYNC_MANAGER_OUTGOING", "1").strip().lower()
+            sync_manager_outgoing=os.getenv("TELEGRAM_GATEWAY_SYNC_MANAGER_OUTGOING", "0").strip().lower()
             not in {"0", "false", "no", "off"},
         )

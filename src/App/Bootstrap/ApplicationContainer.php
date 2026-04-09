@@ -393,12 +393,7 @@ final class ApplicationContainer
             ? ('https://' . $this->config->siteDomain)
             : 'https://example.com';
 
-        $url = $base . '/bitrix/app';
-        if ($this->config->bitrixWebhookToken !== '') {
-            $url .= '?token=' . rawurlencode($this->config->bitrixWebhookToken);
-        }
-
-        return $url;
+        return $base . '/bitrix/app';
     }
 
     private function openLinesWebhookUrl(): string

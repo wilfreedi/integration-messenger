@@ -365,9 +365,11 @@ final readonly class BitrixOpenLinesWebhookValidator
         }
 
         return in_array($eventName, [
+            'ONIMCONNECTORMESSAGEADD',
             'ONOPENLINEMESSAGEADD',
             'ONOPENLINEMESSAGEUPDATE',
             'ONOPENLINEMESSAGEDELETE',
+            'ONSENDMESSAGECUSTOM',
         ], true);
     }
 }

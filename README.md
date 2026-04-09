@@ -287,7 +287,10 @@ TELEGRAM_CONNECTOR_MODE=gateway
 ```bash
 TELEGRAM_API_ID=...
 TELEGRAM_API_HASH=...
+TELEGRAM_GATEWAY_SYNC_MANAGER_OUTGOING=0
 ```
+
+`TELEGRAM_GATEWAY_SYNC_MANAGER_OUTGOING=0` (по умолчанию) отключает отправку собственных исходящих сообщений аккаунта-менеджера в Bitrix как клиентских.
 
 3. Перезапустить Docker Compose:
 

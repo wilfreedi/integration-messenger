@@ -25,7 +25,6 @@ final readonly class BitrixSetupProfileController
         $webhookToken = $this->value($env, 'BITRIX_WEBHOOK_TOKEN', $this->config->bitrixWebhookToken);
         $managementToken = $this->value($env, 'BITRIX_MANAGEMENT_TOKEN', $this->config->bitrixManagementToken);
         $acmeEmail = $this->value($env, 'ACME_EMAIL', '');
-        $tokenQuery = $webhookToken !== '' ? ('?token=' . rawurlencode($webhookToken)) : '';
 
         return [
             'status' => 'ok',
@@ -38,8 +37,8 @@ final readonly class BitrixSetupProfileController
             'bitrix_management_token' => $managementToken,
             'bitrix_webhook_token_configured' => $webhookToken !== '',
             'bitrix_management_token_configured' => $managementToken !== '',
-            'bitrix_app_handler_url' => $baseUrl !== '' ? ($baseUrl . '/bitrix/app' . $tokenQuery) : '',
-            'bitrix_app_install_url' => $baseUrl !== '' ? ($baseUrl . '/bitrix/app' . $tokenQuery) : '',
+            'bitrix_app_handler_url' => $baseUrl !== '' ? ($baseUrl . '/bitrix/app') : '',
+            'bitrix_app_install_url' => $baseUrl !== '' ? ($baseUrl . '/bitrix/app') : '',
             'bitrix_open_lines_webhook_url' => $baseUrl !== ''
                 ? ($baseUrl . '/api/webhooks/bitrix/open-lines' . ($webhookToken !== '' ? ('?token=' . $webhookToken) : ''))
                 : '',

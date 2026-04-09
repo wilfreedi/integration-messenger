@@ -240,6 +240,7 @@ curl http://127.0.0.1:8090/v1/auth/state
 BITRIX_CONNECTOR_MODE=rest
 BITRIX_WEBHOOK_TOKEN=<optional_shared_token>
 BITRIX_MANAGEMENT_TOKEN=<optional_token_for_/api/bitrix/*>
+TELEGRAM_GATEWAY_SYNC_MANAGER_OUTGOING=0
 ```
 
 2. Перезапусти приложение:

@@ -13,6 +13,7 @@ final class BitrixOpenLinesWebhookValidatorTest
     public static function run(): void
     {
         self::itParsesBitrixOpenLinesPayloadToCommands();
+        self::itParsesOnImConnectorMessageAddPayloadAsOpenLineEvent();
         self::itParsesMessagesRootShape();
         self::itParsesStringifiedDataRoot();
         self::itParsesFieldsMessagesShape();
@@ -177,6 +178,42 @@ final class BitrixOpenLinesWebhookValidatorTest
         Assertions::assertSame('479493406', $messages[0]->command->externalThreadId);
         Assertions::assertSame('80964', $messages[0]->command->externalMessageId);
         Assertions::assertSame('80964', $messages[0]->imMessageId);
+        Assertions::assertSame('10587', $messages[0]->imChatId);
+    }
+
+    private static function itParsesOnImConnectorMessageAddPayloadAsOpenLineEvent(): void
+    {
+        $validator = new BitrixOpenLinesWebhookValidator(ChannelProvider::TELEGRAM);
+
+        $messages = $validator->validate([
+            'event' => 'ONIMCONNECTORMESSAGEADD',
+            'eventId' => 2049,
+            'data' => [
+                'DATA' => [
+                    [
+                        'connector' => [
+                            'connector_id' => 'chat_sync',
+                            'line_id' => 192,
+                            'chat_id' => 10587,
+                            'user_id' => '479493406',
+                        ],
+                        'chat' => [
+                            'id' => 10585,
+                        ],
+                        'message' => [
+                            'id' => 80966,
+                            'text' => 'Ответ оператора через imconnector',
+                            'system' => 'N',
+                            'user_id' => 17,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Assertions::assertCount(1, $messages);
+        Assertions::assertSame('479493406', $messages[0]->command->externalThreadId);
+        Assertions::assertSame('80966', $messages[0]->command->externalMessageId);
         Assertions::assertSame('10587', $messages[0]->imChatId);
     }
 

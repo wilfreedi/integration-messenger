@@ -136,6 +136,7 @@ class AccountSession:
         self._recent_events_lock = threading.Lock()
         self._integration_sent_messages: dict[str, float] = {}
         self._integration_sent_messages_lock = threading.Lock()
+        self._self_user_id: str | None = None
         self._authorization_state = "not_started"
         self._authorization_meta: dict[str, Any] = {}
         self._last_error = ""
@@ -412,6 +413,17 @@ class AccountSession:
 
             try:
                 chat = self._call({"@type": "getChat", "chat_id": int(message["chat_id"])})
+                if self._is_self_private_chat(chat):
+                    self._append_recent_event(
+                        {
+                            "account_id": self._account.account_id,
+                            "direction": "skipped",
+                            "reason": "self_chat",
+                            "chat_id": str(message.get("chat_id", "")),
+                            "external_message_id": str(message.get("id", "")),
+                        }
+                    )
+                    continue
                 dto = self._normalizer.normalize(message, chat)
                 if dto is None:
                     self._append_recent_event(
@@ -435,6 +447,7 @@ class AccountSession:
                         "event_id": dto.event_id,
                         "external_chat_id": dto.contact_external_chat_id,
                         "external_message_id": dto.external_message_id,
+                        "is_outgoing": bool(message.get("is_outgoing", False)),
                         "body": dto.body,
                     }
                 )
@@ -681,6 +694,37 @@ class AccountSession:
             return datetime.fromtimestamp(int(value), tz=timezone.utc).isoformat()
         except (TypeError, ValueError, OSError):
             return ""
+
+    def _is_self_private_chat(self, chat: dict[str, Any]) -> bool:
+        chat_type = chat.get("type") or {}
+        if chat_type.get("@type") != "chatTypePrivate":
+            return False
+
+        chat_user_id = chat_type.get("user_id")
+        if chat_user_id is None:
+            return False
+
+        self_user_id = self._self_user_id_cached()
+        if self_user_id is None:
+            return False
+
+        return str(chat_user_id) == self_user_id
+
+    def _self_user_id_cached(self) -> str | None:
+        if self._self_user_id is not None:
+            return self._self_user_id
+
+        try:
+            me = self._call({"@type": "getMe"}, timeout=10.0)
+        except Exception:
+            return None
+
+        user_id = me.get("id")
+        if user_id is None:
+            return None
+
+        self._self_user_id = str(user_id)
+        return self._self_user_id
 
 
 class TelegramGateway:
