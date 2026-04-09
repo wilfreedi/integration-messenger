@@ -4,6 +4,10 @@
 
 {$SITE_DOMAIN:localhost} {
 	encode zstd gzip
+	log {
+		output stdout
+		format console
+	}
 
 	# Telegram gateway UI over HTTPS: https://<domain>/telegram/
 	handle_path /telegram/* {

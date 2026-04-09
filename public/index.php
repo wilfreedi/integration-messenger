@@ -24,6 +24,16 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $clientIp = clientIpAddress();
 $userAgent = is_string($_SERVER['HTTP_USER_AGENT'] ?? null) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
 
+if ($container->config()->appDebug) {
+    error_log(sprintf(
+        '[request] %s %s ip=%s ua=%s',
+        $method,
+        $path,
+        $clientIp,
+        $userAgent !== '' ? $userAgent : '-',
+    ));
+}
+
 try {
     if ($panelAccess->isSensitivePath($path)) {
         $panelAccess->banIp($clientIp, 'sensitive_path_probe');
