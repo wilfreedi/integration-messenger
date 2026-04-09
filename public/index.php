@@ -144,14 +144,12 @@ try {
             );
         }
 
-        if ($method === 'POST') {
-            $installPayload = normalizeBitrixInstallPayload($payload);
-            if ($installPayload !== null) {
-                try {
-                    $container->bitrixAppInstallController()->handle($installPayload);
-                } catch (Throwable) {
-                    // Do not break app-open flow if install payload has partial/invalid fields.
-                }
+        $installPayload = normalizeBitrixInstallPayload($payload);
+        if ($installPayload !== null) {
+            try {
+                $container->bitrixAppInstallController()->handle($installPayload);
+            } catch (Throwable) {
+                // Do not break app-open flow if install payload has partial/invalid fields.
             }
         }
 
